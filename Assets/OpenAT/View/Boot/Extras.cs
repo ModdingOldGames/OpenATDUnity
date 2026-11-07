@@ -26,6 +26,7 @@ namespace OpenAT.View.Boot
             new Switch(nameof(GameOptions.PlannerHiResLaptop), "HI-RES LAPTOP", "LAPTOP HD"),
             new Switch(nameof(GameOptions.GamepadSupport), "GAMEPAD", "GAMEPAD"),
             new Switch(nameof(GameOptions.SkipStartWalk), "SKIP START WALK", "STARTGANG WEG"),
+            new Switch(nameof(GameOptions.PadFollowCamera), "PAD CAMERA", "PAD-KAMERA"),
         };
 
         const string Prefix = "OpenAT.Extra.";

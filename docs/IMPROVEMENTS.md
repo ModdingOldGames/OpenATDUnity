@@ -201,5 +201,13 @@ original's coffee boost) when pushed fully. Letting go stops the figure on its t
 click or a walk to a room ends stick walking. The command goes through the simulation like a click, so
 the game stays deterministic. Tests: `tests/OpenAT.Tests/HallStickTests.cs`.
 
+**Stick-walk camera** (`GameOptions.PadFollowCamera`, on; *Options > Other > OpenAT extras > PAD CAMERA*). While
+the figure walks with the stick, the hall camera drops the original's delayed, inertial scrolling (which waits
+until the figure nears the edge and then speeds up slowly). Each camera step moves with the figure and closes 35 %
+of the remaining gap to the screen centre, so a walking figure stays centred and an off-centre one is centred
+within about half a second. At the hall's ends the view stops at the edge as before. After the stick is let go the
+camera finishes centring and the original camera takes over again; mouse walks and edge scrolling keep the original
+camera (`View/Airport/AirportScreen.cs`, `FocusCamera`).
+
 The auto scripts have a `pad lx ly rx ry [buttons]` command that feeds a virtual gamepad (tests).
 

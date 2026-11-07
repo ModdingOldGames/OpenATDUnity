@@ -191,6 +191,7 @@ namespace OpenAT.View.Airport
                 bool dbl = Time.unscaledTime - _lastClick < 0.4f && (m - _lastClickPos).sqrMagnitude < 64;
                 _lastClick = Time.unscaledTime;
                 _lastClickPos = m;
+                if (!_stickOn) _padCam = false;   // a click walk gets the original camera
                 int px = me.Position.X - ViewX;
                 if (px > -5 && px < W + 5) _manualScroll = false;
                 var click = new Pt(m.x + ViewX, m.y + ViewY);
@@ -216,6 +217,7 @@ namespace OpenAT.View.Airport
         // ------------------------------------------------------------------ gamepad (OpenAT)
 
         bool _stickOn;
+        bool _padCam;   // the stick-walk follow camera is in charge (OpenAT, GameOptions.PadFollowCamera)
 
         /// <summary>Doors, counters and displays in view are gamepad targets.</summary>
         void AddPadTargets()
@@ -248,6 +250,7 @@ namespace OpenAT.View.Airport
             if (!_w.Execute(new StickWalkCommand(Local, dx, dy, tilt)).Ok) return;
             _stickOn = true;
             _manualScroll = false;
+            _padCam = _w.Options.PadFollowCamera;
             if (App.Session != null) App.Session.Driver.Warp = false;
         }
 
@@ -384,6 +387,7 @@ namespace OpenAT.View.Airport
                 if (_edgeZone < 0) { if (_manualSpeed > -cap) _manualSpeed -= 2; if (_manualSpeed < -44) _manualSpeed = -44; }
                 else { if (_manualSpeed < cap) _manualSpeed += 2; if (_manualSpeed > 44) _manualSpeed = 44; }
                 _manualScroll = true;
+                _padCam = false;
             }
             if (_edgeZone == 0 || (!_scrollFast && Math.Abs(_manualSpeed) > 8))
             {
@@ -407,7 +411,22 @@ namespace OpenAT.View.Airport
                 if (ty > 0) ty = 0;
 
                 float now = Time.unscaledTime;
-                if (Math.Abs(uncorrected - ViewX) > size * 2 / 3 || _camSpeedX != 0 || now - _lastScrollTime < 0.5f)
+                if (_padCam)
+                {
+                    // Stick walking (OpenAT): move with the figure and close 35 % of the gap to the centre each step, so
+                    // the figure stays centred while it walks and the view catches up within half a second. No inertia,
+                    // no waiting for the figure to near the edge. At the hall's ends the target is clamped: no lead.
+                    int d = tx == uncorrected ? _lastDeltas[4] : 0;
+                    int e = tx - ViewX;
+                    int step = (int)Math.Round(e * 0.35 + d * 0.65);
+                    if (Math.Abs(e) <= 2) step = e;
+                    ViewX += step;
+                    _camSpeedX = _lastCamSpeedX = _acceptedCamSpeedX = 0;
+                    if (step != 0) _lastScrollTime = now;
+                    // After the stick is let go, centre the figure, then hand back to the original camera.
+                    if (!_stickOn && ViewX == tx || !_w.Options.PadFollowCamera) _padCam = false;
+                }
+                else if (Math.Abs(uncorrected - ViewX) > size * 2 / 3 || _camSpeedX != 0 || now - _lastScrollTime < 0.5f)
                 {
                     int tmp = Inertia(tx, tx + (ViewX - tx) * 2) + avg;
                     if (tmp > _camSpeedX) _camSpeedX++;

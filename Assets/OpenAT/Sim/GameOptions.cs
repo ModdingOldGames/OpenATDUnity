@@ -133,6 +133,9 @@ namespace OpenAT.Sim
         /// <summary>The first morning's walk of all figures to the boss office can be skipped (Esc, Space, right click,
         /// or the pad's B, Cross or Start): the briefing opens at once.</summary>
         public bool SkipStartWalk = true;
+        /// <summary>While the figure walks with the gamepad stick, the hall camera follows it closely and centres it, without
+        /// the original's delayed, inertial scrolling (mouse walking keeps the original camera).</summary>
+        public bool PadFollowCamera = true;
 
         public GameOptions Clone() => (GameOptions)MemberwiseClone();
     }
