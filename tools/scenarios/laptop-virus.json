@@ -1,0 +1,9 @@
+{
+  // The laptop is infected (virus state 1): the icons and toggles only twitch.
+  "seed": 4711,
+  "skipBriefing": true,
+  "time": "10:00",
+  "items": ["laptop"],
+  "laptop": { "quality": 2, "virus": 1 },
+  "room": "laptop"
+}

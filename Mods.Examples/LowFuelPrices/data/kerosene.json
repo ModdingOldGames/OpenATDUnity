@@ -1,0 +1,9 @@
+{
+  // Tunables are the balance numbers the rules read (docs/MODDING.md "Tunables").
+  // Original values: start 500, min 300, max 700.
+  "tunables": {
+    "kerosene.start": 250,
+    "kerosene.min": 150,
+    "kerosene.max": 350
+  }
+}

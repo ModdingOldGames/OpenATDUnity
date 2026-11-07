@@ -1,0 +1,16 @@
+OpenAT is an open-source reimplementation of Airline Tycoon Deluxe.
+
+It contains NO game content. You need your own installed copy of Airline Tycoon Deluxe
+(for example the GOG or Steam edition). On a later page Setup asks for the folder of that
+install (it fills it in when it finds one) and copies the game's graphics, sounds, voices,
+videos, texts and tables (about 550 MB) into the Game folder next to OpenAT.exe.
+Your Airline Tycoon Deluxe install is only read, never changed.
+
+If you move or uninstall Airline Tycoon Deluxe later, OpenAT keeps working: it uses its own
+copy. To refresh the copy, run this Setup again. Uninstalling OpenAT removes the copy.
+
+Saves and settings are kept in %USERPROFILE%\AppData\LocalLow\DefaultCompany\OPENAT and are
+not removed by uninstalling.
+
+Airline Tycoon Deluxe is (c) Spellbound / Kalypso Media / Black Forest Games. OpenAT is an
+unofficial fan project, not affiliated with or endorsed by the rights holders.

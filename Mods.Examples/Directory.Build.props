@@ -1,0 +1,10 @@
+<Project>
+  <!-- Shared settings of the example code mods. `dotnet build` puts a ready-to-use mod folder
+       (mod.json, data/, the mod DLL) into $(ModDeployDir), by default <repo>/Build/Mods/<ModName>
+       (gitignored). Point the game at it: "openat sim (mods option) Build/Mods", or copy it into the
+       Mods folder next to OpenAT.exe. Override with the ModDeployDir property -->
+  <PropertyGroup>
+    <OpenATRepo>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</OpenATRepo>
+    <ModDeployRoot Condition="'$(ModDeployRoot)' == ''">$(OpenATRepo)/Build/Mods</ModDeployRoot>
+  </PropertyGroup>
+</Project>

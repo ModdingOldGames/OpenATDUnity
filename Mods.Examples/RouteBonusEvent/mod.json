@@ -1,0 +1,8 @@
+{
+  "id": "routebonusevent",
+  "name": "Route bonus of the week",
+  "version": "1.0.0",
+  "author": "OpenAT contributors",
+  "description": "Example code mod: once a week a random route gets a demand boost for seven days and the news reports it. Keeps its own saved state.",
+  "loadOrder": 10
+}

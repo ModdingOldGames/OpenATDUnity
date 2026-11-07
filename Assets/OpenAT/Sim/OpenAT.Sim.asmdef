@@ -1,0 +1,8 @@
+{
+    "name": "OpenAT.Sim",
+    "rootNamespace": "OpenAT.Sim",
+    "references": ["OpenAT.Formats"],
+    "allowUnsafeCode": false,
+    "autoReferenced": true,
+    "noEngineReferences": true
+}

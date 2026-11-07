@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Example code mod built against the Sim sources (Mods.Examples/Sdk/OpenAT.Sim). The Sim DLL is a
+       compile-time reference only (Private=false): the game binds the mod to its own Sim at run time. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsOpenATMod>true</IsOpenATMod>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <ProjectReference Include="../Sdk/OpenAT.Sim/OpenAT.Sim.csproj" Private="false" />
+  </ItemGroup>
+</Project>

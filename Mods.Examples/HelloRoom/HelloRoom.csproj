@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Example view code mod. It references the game's Unity assemblies (compile time only):
+       OpenATManaged = folder with OpenAT.View.dll / OpenAT.Sim.dll / OpenAT.Formats.dll (the editor's
+       Library/ScriptAssemblies, or a player's OpenAT_Data/Managed), UnityManaged = the folder with
+       UnityEngine.CoreModule.dll (the Unity editor's Data/Managed/UnityEngine, or the player's Managed).
+       dotnet build -p:OpenATManaged=... -p:UnityManaged=... -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsOpenATMod>true</IsOpenATMod>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OpenATManaged Condition="'$(OpenATManaged)' == ''">$(OpenATRepo)/Library/ScriptAssemblies</OpenATManaged>
+    <UnityManaged Condition="'$(UnityManaged)' == ''">C:/Program Files/Unity/Hub/Editor/6000.4.3f1/Editor/Data/Managed/UnityEngine</UnityManaged>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Reference Include="OpenAT.View"><HintPath>$(OpenATManaged)/OpenAT.View.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="OpenAT.Sim"><HintPath>$(OpenATManaged)/OpenAT.Sim.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="OpenAT.Formats"><HintPath>$(OpenATManaged)/OpenAT.Formats.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(UnityManaged)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

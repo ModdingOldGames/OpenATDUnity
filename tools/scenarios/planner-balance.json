@@ -1,0 +1,18 @@
+{
+  // Day 2 of a free game with a good finance advisor: yesterday's balance sheet and plane balances
+  // in the planner/laptop info pages.
+  "seed": 4711,
+  "homeCity": "London",
+  "advanceDays": 2,
+  "skipBriefing": true,
+  "time": "10:00",
+  "money": 60000000,
+  "items": ["laptop"],
+  "laptop": { "quality": 4 },
+  "advisors": { "finance": 90 },
+  "planes": [ { "type": "114", "count": 2 } ],
+  "routes": 2,
+  "orders": 3,
+  "planFlights": true,
+  "room": "laptop"
+}

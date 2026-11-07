@@ -1,0 +1,9 @@
+{
+  // Day 0 at 10:20 with the top laptop (full battery), nothing else: the same state as the original's
+  // laptop cheat right after the first briefing (docs/FIDELITY.md, "Laptop").
+  "skipBriefing": true,
+  "time": "10:20",
+  "items": ["laptop"],
+  "laptop": { "quality": 4 },
+  "room": "laptop"
+}

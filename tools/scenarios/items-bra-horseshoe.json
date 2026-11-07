@@ -1,0 +1,8 @@
+{
+  // The bra chain at the duty free: give the bra (slot 0) to the saleswoman, then the horseshoe from the hook.
+  "seed": 4711,
+  "skipBriefing": true,
+  "time": "10:00",
+  "items": ["bra"],
+  "room": "dutyfree"
+}

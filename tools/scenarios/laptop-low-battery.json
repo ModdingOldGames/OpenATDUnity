@@ -1,0 +1,10 @@
+{
+  // Cheapest laptop with 8 game minutes of battery left: the warning comes at 2, then it dies (~8 s at normal speed).
+  "seed": 4711,
+  "skipBriefing": true,
+  "time": "10:00",
+  "items": ["laptop"],
+  "laptop": { "quality": 1, "battery": 8 },
+  "orders": 2,
+  "room": "laptop"
+}

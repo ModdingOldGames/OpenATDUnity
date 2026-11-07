@@ -1,0 +1,9 @@
+{
+  "id": "lowfuelprices",
+  "name": "Low fuel prices",
+  "version": "1.0.0",
+  "author": "OpenAT contributors",
+  "description": "Example data mod: the kerosene market trades at half the original range (150..350 instead of 300..700).",
+  "loadOrder": 0,
+  "enabled": true
+}

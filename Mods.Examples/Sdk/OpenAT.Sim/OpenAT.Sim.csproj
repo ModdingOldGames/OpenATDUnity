@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Mod SDK: builds OpenAT.Sim.dll from the game sources (same assembly name as the Unity build).
+       Code mods reference this project with Private="false"; at run time the game binds them to its
+       own Sim (OpenAT.Sim in Unity, the CLI / test assembly headless; see ModAssemblies). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>OpenAT.Sim</AssemblyName>
+    <RootNamespace>OpenAT.Sim</RootNamespace>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+    <FileVersion>0.0.0.0</FileVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../Assets/OpenAT/Sim/**/*.cs" Link="Sim/%(RecursiveDir)%(Filename)%(Extension)" />
+    <ProjectReference Include="../OpenAT.Formats/OpenAT.Formats.csproj" />
+  </ItemGroup>
+</Project>

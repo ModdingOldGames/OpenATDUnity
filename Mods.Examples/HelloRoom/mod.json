@@ -1,0 +1,9 @@
+{
+  "id": "helloroom",
+  "name": "Hello room",
+  "version": "1.0.0",
+  "author": "OpenAT contributors",
+  "description": "Example view code mod: adds room 1000 (listed in the lobby, -openat-screen lobby; enter directly with -openat-screen 1000). Shows how a room is written and registered.",
+  "loadOrder": 20,
+  "dependencies": [{ "id": "routebonusevent", "optional": true }]
+}

@@ -1,0 +1,8 @@
+{
+    "name": "OpenAT.Formats",
+    "rootNamespace": "OpenAT.Formats",
+    "references": [],
+    "allowUnsafeCode": true,
+    "autoReferenced": true,
+    "noEngineReferences": true
+}

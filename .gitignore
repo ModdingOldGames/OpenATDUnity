@@ -1,0 +1,54 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+*.csproj
+*.sln
+*.slnx
+!/tools/**/*.csproj
+!/tests/**/*.csproj
+!/Mods.Examples/**/*.csproj
+!/OpenAT.sln
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+.vs/
+.idea/
+*.user
+*.userprefs
+sysinfo.txt
+crashlytics-buildid.txt
+
+# dotnet
+bin/
+obj/
+
+# NEVER commit original game data. Imported/extracted copies live here.
+/GameData/
+/extracted/
+*.gli
+*.glj
+*.smk
+*.mcf
+*.res
+*.raw
+*.RAW
+*.pol
+*.pln
+*.lbm
+*.mid
+*.MID
+
+# Local reference material (manual, decoded data). Never commit.
+/docs/spec/local/
+
+# Local agent state
+/.claude/
+
+# dotnet test output
+TestResults/

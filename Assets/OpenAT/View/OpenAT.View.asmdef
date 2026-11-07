@@ -1,0 +1,14 @@
+{
+    "name": "OpenAT.View",
+    "rootNamespace": "OpenAT.View",
+    "references": ["OpenAT.Formats", "OpenAT.Sim", "Unity.InputSystem", "UnityEngine.UI"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

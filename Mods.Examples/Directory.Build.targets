@@ -1,0 +1,14 @@
+<Project>
+  <!-- Copies the built mod (DLL + pdb, mod.json, data/**) into its deploy folder. -->
+  <Target Name="DeployMod" AfterTargets="Build" Condition="'$(IsOpenATMod)' == 'true'">
+    <PropertyGroup>
+      <ModDeployDir Condition="'$(ModDeployDir)' == ''">$(ModDeployRoot)/$(MSBuildProjectName)</ModDeployDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <ModData Include="$(MSBuildProjectDirectory)/data/**/*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb;$(MSBuildProjectDirectory)/mod.json" DestinationFolder="$(ModDeployDir)" SkipUnchangedFiles="true" ContinueOnError="true" />
+    <Copy SourceFiles="@(ModData)" DestinationFolder="$(ModDeployDir)/data/%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="OpenAT mod deployed: $(ModDeployDir)" />
+  </Target>
+</Project>
