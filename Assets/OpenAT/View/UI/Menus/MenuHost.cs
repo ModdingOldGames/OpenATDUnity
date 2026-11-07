@@ -58,11 +58,16 @@ namespace OpenAT.View.UI.Menus
         /// <summary>Inclusive menu-local rect test; sets cursor and tooltip when hovering.</summary>
         protected bool Hot(Vector2Int l, int x1, int y1, int x2, int y2, int tooltip = 0, CursorLook look = CursorLook.Hot)
         {
+            PadTarget(x1, y1, x2, y2);
             if (l.x < x1 || l.x > x2 || l.y < y1 || l.y > y2) return false;
             App.Ui.Cursor = look;
             if (tooltip != 0) App.Ui.Tooltip.Set(tooltip);
             return true;
         }
+
+        /// <summary>A gamepad target in menu coordinates (inclusive corners), OpenAT.</summary>
+        protected void PadTarget(int x1, int y1, int x2, int y2) =>
+            App.Ui.Targets.Add(new RectInt(ScreenPos.x + x1, ScreenPos.y + y1, x2 - x1 + 1, y2 - y1 + 1));
 
         protected string Std(string group, int id) => Assets.StdText.Get(group, id) ?? "";
 
@@ -158,12 +163,14 @@ namespace OpenAT.View.UI.Menus
             Place(Current);
             if (Calculator.IsOpen)
             {
+                App.Ui.Targets.ModalKey = Calculator;   // gamepad: the keys are the targets (OpenAT)
                 Calculator.Update(input);
                 if (input.RightDown) { Calculator.Cancel(); input.Consume(); }
                 input.Consume();
                 return true;
             }
             var local = input.Mouse - Current.ScreenPos;
+            App.Ui.Targets.ModalKey = Current;   // gamepad: the menu's options are the targets (OpenAT)
             if (Current.OnKey(input)) return true;
             var m = Current;
             m.Update(input, local);
@@ -274,6 +281,12 @@ namespace OpenAT.View.UI.Menus
             if (input.Enter) Press("OK");
             else if (input.Backspace || input.Delete) Press("C");
             else if (input.Escape) Press("X");
+            // Gamepad targets (OpenAT): the keys.
+            foreach (var k in Keys)
+            {
+                var ks = KeySize(k.key);
+                App.Ui.Targets.Add(new RectInt(_pos.x + k.x + 4, _pos.y + k.y + 4, ks.x - 8, ks.y - 8));
+            }
             if (!input.LeftDown || !IsOpen) return;
             var l = input.Mouse - _pos;
             foreach (var k in Keys)

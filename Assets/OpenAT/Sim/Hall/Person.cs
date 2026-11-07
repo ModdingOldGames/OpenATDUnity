@@ -96,6 +96,10 @@ namespace OpenAT.Sim.Hall
         public int Room;
         /// <summary>Ticks since the local player last moved (camera re-centring, §5.3).</summary>
         public int DidntMove;
+        /// <summary>Stick walking (OpenAT, <see cref="StickWalkCommand"/>): pace in percent of a walking step per tick
+        /// (0 = not stick-driven; above 100 the figure runs, with a second and third step at the excess rate), the pace
+        /// accumulator, and the stick direction (−1..1 per axis: columns, rows).</summary>
+        public int StickPace, StickAcc, StickX, StickY;
 
         public bool InHall => Room == 0 || Room == RoomIds.Airport;
     }

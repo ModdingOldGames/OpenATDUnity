@@ -217,6 +217,41 @@ namespace OpenAT.Sim.Fleet
             return 0;
         }
 
+        /// <summary>
+        /// OpenAT planner improvements: the expected income and costs of a planned flight, as
+        /// <see cref="BookFlight"/> would book them with the plan's current figures. Fuel is the original
+        /// planner's estimate (tank stock free, the rest at the market price); passenger flights add catering.
+        /// A contract flight that breaks its contract earns nothing. A freight order pays its premium with its
+        /// last tons; each flight is credited the share of the tons it carries. Route passengers are the plan's
+        /// current figures, which the departure recomputes.
+        /// </summary>
+        public static void EstimateResult(World w, Player p, Plane plane, in FlightEntry e, out long income, out long cost)
+        {
+            income = cost = 0;
+            if (e.Kind == FlightKind.None || plane == null) return;
+            cost = w.FuelCost.Estimate(w, p, e.From, e.To, plane.Burn, plane.Speed);
+            if (e.IsPassengerFlight) cost += (long)e.Passengers * FoodCost(plane.Equipment[Equip.Food]);
+            switch (e.Kind)
+            {
+                case FlightKind.Route:
+                    income = (long)e.TicketPrice * e.Passengers + (long)e.TicketPriceFC * e.PassengersFC;
+                    break;
+                case FlightKind.Contract:
+                    income = e.Okay == EntryOkay.Ok ? p.Contracts.Find(e.ObjectId)?.Premium ?? 0 : 0;
+                    break;
+                case FlightKind.Freight:
+                    {
+                        var f = p.Freights.Find(e.ObjectId);
+                        if (f != null && f.Tons > 0)
+                            income = (long)f.Premium * Math.Min(Math.Max(0, Math.Min(e.Passengers, plane.Seats / 10)), f.Tons) / f.Tons;
+                        break;
+                    }
+                case FlightKind.Auto:
+                    income = (long)plane.Seats * w.Distance(e.From, e.To) / 1000 / 40;
+                    break;
+            }
+        }
+
         /// <summary>Add-on mission 9 order flight counting (§12.4 step 11).</summary>
         static bool CountOrderFlight(World w, Player p, Contract c)
         {

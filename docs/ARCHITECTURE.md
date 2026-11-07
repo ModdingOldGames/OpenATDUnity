@@ -71,8 +71,11 @@ Rules for contributors:
 ## Widescreen
 
 The original renders 640x480 (rooms 640x440 + 40 px status bar). OpenAT renders into a virtual
-framebuffer that is always 480 px high and `round(480 * aspect)` px wide (minimum 640), scaled
-to the window with nearest-neighbour filtering.
+framebuffer that is always 480 px high and `round(480 * aspect)` px wide (minimum 640). All layout
+and input use these virtual pixels. The render texture itself has the window's resolution
+(`Screen2D.DensityX/Y` device pixels per virtual pixel). Original bitmaps are point-sampled, so
+they look as with nearest-neighbour upscaling. High-resolution content (`ScaledBitmapFont` text and
+`PixelArtScaler` smoothed artwork, used by OpenAT improvements) uses the real pixels.
 - **Airport hall:** the viewport simply gets wider; more of the airport is visible, scroll limits are
   derived from the viewport width.
 - **Rooms:** fixed 640-wide artwork is centred; side areas are filled (blurred/dimmed edge

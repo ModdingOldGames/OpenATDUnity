@@ -1,0 +1,14 @@
+# Main menu: d-pad between lines, cross opens, circle goes back. Start the game on the main menu.
+waitready
+wait 1000
+tap ddown 150
+wait 600
+tap ddown 150
+wait 600
+tap dup 150
+wait 600
+tap cross 150      # opens the highlighted line
+wait 2500
+tap circle 150     # back
+wait 1500
+state

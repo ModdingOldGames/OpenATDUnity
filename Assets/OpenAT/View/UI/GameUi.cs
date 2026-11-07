@@ -25,13 +25,18 @@ namespace OpenAT.View.UI
         public bool SoftwareCursor = true;
 
         public readonly Tooltip Tooltip = new Tooltip();
+        /// <summary>Gamepad play (OpenAT): the pad and the clickable targets the screens report each frame.</summary>
+        public readonly GamepadInput Pad = new GamepadInput();
+        public readonly PadTargets Targets = new PadTargets();
+        /// <summary>The gamepad's fast-travel menu (OpenAT).</summary>
+        public readonly FastTravelMenu FastTravel;
         public readonly Crossfade Fade = new Crossfade();
 
         /// <summary>Pause (Pause key or app deactivation); a left click unpauses (§11.3).</summary>
         public bool Paused { get; private set; }
         float _pauseBlend;
 
-        public GameUi(GameApp app) => _app = app;
+        public GameUi(GameApp app) { _app = app; FastTravel = new FastTravelMenu(app); }
 
         public void Init(GameAssets assets)
         {
@@ -51,6 +56,7 @@ namespace OpenAT.View.UI
         {
             Cursor = CursorLook.Normal;
             Tooltip.BeginFrame();
+            Targets.Begin(_app.Screen.Width, _app.Screen.Height);
             if (input.LeftDown)
             {
                 Tooltip.HideNow();
@@ -71,9 +77,24 @@ namespace OpenAT.View.UI
                 s.FillRect(new RectInt(0, 0, s.Width, s.Height), new Color32(0, 0, 0, (byte)(_pauseBlend * 160)));
                 s.Draw(pic, (s.Width - pic.width) / 2, 0, new Color32(255, 255, 255, (byte)(_pauseBlend * 255)));
             }
-            Tooltip.Draw(s, Kit, input.Mouse);
+            if (input.PadActive && !Paused && !FastTravel.IsOpen) DrawPadFocus(s, input.Mouse);
+            FastTravel.Draw(s, Kit);
+            if (!FastTravel.IsOpen) Tooltip.Draw(s, Kit, input.Mouse);
             Fade.Draw(s, dt);
             DrawCursor(s, input.Mouse);
+        }
+
+        /// <summary>Gamepad focus (OpenAT): a thin frame around the target under the pad cursor, the pad's hover.</summary>
+        void DrawPadFocus(Screen2D s, Vector2Int m)
+        {
+            int i = Targets.At(m);
+            if (i < 0) return;
+            var r = Targets.Rects[i];
+            var c = new Color32(255, 230, 120, 200);
+            s.FillRect(new RectInt(r.x - 1, r.y - 1, r.width + 2, 1), c);
+            s.FillRect(new RectInt(r.x - 1, r.yMax, r.width + 2, 1), c);
+            s.FillRect(new RectInt(r.x - 1, r.y, 1, r.height), c);
+            s.FillRect(new RectInt(r.xMax, r.y, 1, r.height), c);
         }
 
         void DrawCursor(Screen2D s, Vector2Int m)
@@ -202,10 +223,10 @@ namespace OpenAT.View.UI
         {
             if (_t < 0 || _snap == null) return;
             int step = (int)(_t / StepSeconds);
-            if (step >= Steps || _snap.width != s.Width) { _t = -1; return; }
+            if (step >= Steps || _snap.width != s.Target.width) { _t = -1; return; }
             byte a = (byte)(255 * (Steps - step) / (Steps + 1));
             // The render texture is sampled bottom-up; flip the source rect vertically.
-            s.DrawScaled(_snap, new Rect(0, 0, s.Width, s.Height), new Rect(0, s.Height, s.Width, -s.Height), new Color32(255, 255, 255, a));
+            s.DrawScaled(_snap, new Rect(0, 0, s.Width, s.Height), new Rect(0, _snap.height, _snap.width, -_snap.height), new Color32(255, 255, 255, a));
             _t += Mathf.Min(dt, StepSeconds);
         }
     }

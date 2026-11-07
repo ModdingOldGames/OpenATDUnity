@@ -83,6 +83,27 @@ namespace OpenAT.View.Screens
             return null;
         }
 
+        /// <summary>The clickable lines as gamepad targets (OpenAT).</summary>
+        /// <summary>Gamepad: a new page of the board counts as a new screen (the cursor goes to its first line).</summary>
+        protected void NewPadPage() => _padPage = new object();
+        object _padPage = new object();
+
+        protected void AddPadTargets()
+        {
+            App.Ui.Targets.ScreenKey = _padPage;
+            // Home: the first clickable line (top row, leftmost part).
+            int bestRow = int.MaxValue, bestCol = 0;
+            foreach (var kv in _lineActions)
+                foreach (var e in kv.Value)
+                    if (kv.Key < bestRow || kv.Key == bestRow && e.c0 < bestCol) { bestRow = kv.Key; bestCol = e.c0; }
+            if (bestRow != int.MaxValue && !App.Ui.Targets.Home.HasValue)   // a page may have set its own
+                App.Ui.Targets.Home = new Vector2Int(OX + BoardX + bestCol * KlackerBoard.CellWidth + KlackerBoard.CellWidth * 2, BoardY + bestRow * KlackerBoard.CellHeight + KlackerBoard.CellHeight / 2);
+            foreach (var kv in _lineActions)
+                foreach (var e in kv.Value)
+                    App.Ui.Targets.Add(new RectInt(OX + BoardX + e.c0 * KlackerBoard.CellWidth, BoardY + kv.Key * KlackerBoard.CellHeight,
+                        (e.c1 - e.c0 + 1) * KlackerBoard.CellWidth, KlackerBoard.CellHeight));
+        }
+
         /// <summary>Text cursor y while typing on the board (the idle planes dodge it instead of the mouse), else null.</summary>
         protected virtual int? TextCursorY => null;
 
@@ -97,6 +118,7 @@ namespace OpenAT.View.Screens
         {
             PumpPlanes(input, dt);
             Board.Update(dt);
+            AddPadTargets();
             var hit = Hit(input);
             if (hit.HasValue) App.Ui.Cursor = hit.Value.look;
             if (input.LeftDown)

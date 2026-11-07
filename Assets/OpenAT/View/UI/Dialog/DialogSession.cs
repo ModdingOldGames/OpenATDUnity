@@ -504,12 +504,20 @@ namespace OpenAT.View.UI.Dialog
             rect = new RectInt(left, top - 10, right - left, total + 20);
         }
 
+        int _choiceHash;
+        object _choiceKey;
+
         void UpdateHighlight(InputState input)
         {
             var font = App.Ui.Kit.Dialog;
             LayoutPlayer(font, out var tops, out var heights, out var rect, out _, out _);
             int my = input.Mouse.y;
             int hit = -1;
+            for (int i = 0; i < tops.Length; i++) App.Ui.Targets.Add(new RectInt(rect.x, tops[i], rect.width, heights[i] + LineDist));   // gamepad (OpenAT)
+            // New answers: a new key, so the pad cursor goes to the first one (OpenAT).
+            int hash = string.Join("|", _texts).GetHashCode();
+            if (hash != _choiceHash || _choiceKey == null) { _choiceHash = hash; _choiceKey = new object(); }
+            App.Ui.Targets.ModalKey = _choiceKey;
             if (input.Mouse.x >= 0)
                 for (int i = 0; i < tops.Length; i++)
                     if (my >= tops[i] && my < tops[i] + heights[i] + LineDist) { hit = i; break; }

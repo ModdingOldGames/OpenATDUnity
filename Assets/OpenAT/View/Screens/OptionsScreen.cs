@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace OpenAT.View.Screens
 {
-    public enum OptionsPage { Start = 1, Graphics = 2, Sound = 3, Other = 4, Load = 5, Save = 6, LeaveGame = 8 }
+    public enum OptionsPage { Start = 1, Graphics = 2, Sound = 3, Other = 4, Load = 5, Save = 6, LeaveGame = 8, Extras = 9, PadButtons = 10 }
 
     /// <summary>
     /// Options on the split-flap board (rooms-and-ui-4 §4): start page, graphics, sound (sliders), other,
@@ -54,6 +54,7 @@ namespace OpenAT.View.Screens
         {
             if (_page == OptionsPage.Sound && p != OptionsPage.Sound) { App.Audio.StopLoop(_ambienceLoop); _ambienceLoop = null; }
             _page = p;
+            NewPadPage();
             _editSlot = -1;
             if (p == OptionsPage.Load || p == OptionsPage.Save) _headers = null; // slot names are re-read
             Refresh();
@@ -69,6 +70,12 @@ namespace OpenAT.View.Screens
         {
             if (_page == OptionsPage.Start) CloseOptions();
             else if (_page == OptionsPage.Load || _page == OptionsPage.Save) CloseOptions(); // original: back from load/save closes (§4.3 quirk)
+            else if (_page == OptionsPage.Extras) Go(OptionsPage.Other);
+            else if (_page == OptionsPage.PadButtons)
+            {
+                if (App.Ui.Pad.Listening) { App.Ui.Pad.CancelListen(); _listenRow = -1; Warp(); }
+                else Go(OptionsPage.Extras);
+            }
             else Go(OptionsPage.Start);
         }
 
@@ -83,6 +90,8 @@ namespace OpenAT.View.Screens
                 case OptionsPage.Other: FillOther(); break;
                 case OptionsPage.Load: case OptionsPage.Save: FillSlots(); break;
                 case OptionsPage.LeaveGame: FillLeave(); break;
+                case OptionsPage.Extras: FillExtras(); break;
+                case OptionsPage.PadButtons: FillPadButtons(); break;
             }
         }
 
@@ -198,7 +207,54 @@ namespace OpenAT.View.Screens
             Toggle(9, "RandomStartDay", 4050);
             // OpenAT addition: the mod list (View/Modding/ModsScreen).
             Item(10, 0, "# MODS...", () => App.Screens.Push(new Modding.ModsScreen()));
-            Item(11, 0, Misc(4099), () => Go(OptionsPage.Start));
+            // OpenAT addition: the improvements can each be switched off (Boot/Extras).
+            Item(11, 0, Assets.Language == Formats.TextResource.Language.German ? "# OPENAT-EXTRAS..." : "# OPENAT EXTRAS...", () => Go(OptionsPage.Extras));
+            Item(13, 0, Misc(4099), () => Go(OptionsPage.Start));
+        }
+
+        /// <summary>OpenAT extras: one line per improvement, a click switches it (stored, and applied to the running game).</summary>
+        void FillExtras()
+        {
+            bool de = Assets.Language == Formats.TextResource.Language.German;
+            Board.PrintAt(0, 0, de ? "OPENAT-EXTRAS:" : "OPENAT EXTRAS:");
+            var all = Boot.Extras.All;
+            for (int i = 0; i < all.Length; i++)
+            {
+                var sw = all[i];
+                bool on = Boot.Extras.Get(sw.Field);
+                string state = on ? (de ? "AN" : "ON") : (de ? "AUS" : "OFF");
+                Item(2 + i, 0, "# " + sw.Label(Assets.Language).PadRight(17) + state, () => { Boot.Extras.Set(App, sw.Field, !on); Warp(); });
+            }
+            Item(3 + all.Length, 0, de ? "# GAMEPAD-TASTEN..." : "# GAMEPAD BUTTONS...", () => Go(OptionsPage.PadButtons));
+            Item(5 + all.Length, 0, Misc(4099), () => Go(OptionsPage.Other));
+        }
+
+        int _listenRow = -1;
+
+        /// <summary>
+        /// Gamepad buttons (OpenAT): one line per action with its button. Choosing a line waits for the next gamepad
+        /// button (Esc / right click cancels); a button another action had is swapped. Reset restores the defaults.
+        /// </summary>
+        void FillPadButtons()
+        {
+            bool de = Assets.Language == Formats.TextResource.Language.German;
+            Board.PrintAt(0, 0, de ? "GAMEPAD-TASTEN:" : "GAMEPAD BUTTONS:");
+            var actions = UI.PadBindings.Actions;
+            for (int i = 0; i < actions.Length && i < 13; i++)
+            {
+                var a = actions[i];
+                int row = 2 + i;
+                string label = UI.PadBindings.Label(a, de).PadRight(12);
+                string value = _listenRow == row ? (de ? "TASTE..." : "PRESS...") : UI.PadBindings.Name(UI.PadBindings.Get(a));
+                Item(row, 0, "# " + label + value, () =>
+                {
+                    _listenRow = row;
+                    App.Ui.Pad.ListenForButton(b => { UI.PadBindings.Set(a, b); _listenRow = -1; Warp(); });
+                    Warp();
+                });
+            }
+            Item(15, 0, de ? "# STANDARD" : "# DEFAULTS", () => { App.Ui.Pad.CancelListen(); _listenRow = -1; UI.PadBindings.ResetAll(); Warp(); }, c0: 0, c1: 10);
+            Item(15, 13, Misc(4099), () => { App.Ui.Pad.CancelListen(); _listenRow = -1; Go(OptionsPage.Extras); }, c0: 13, c1: 23);
         }
 
         // ------------------------------------------------------------------ load / save (§4.3)

@@ -21,6 +21,13 @@ namespace OpenAT.View.UI
         public bool Ctrl, Shift;
         /// <summary>Set by a screen that handled the click so overlays below ignore it.</summary>
         public bool Consumed;
+        /// <summary>The gamepad drives the cursor this frame (<see cref="GamepadInput"/>).</summary>
+        public bool PadActive;
+        /// <summary>LB (−1) or RB (+1) pressed this frame. A screen that uses it sets it to 0; otherwise the
+        /// cursor cycles through the targets.</summary>
+        public int PadShoulder;
+        /// <summary>Share pressed: open the fast-travel menu (<see cref="FastTravelMenu"/>).</summary>
+        public bool PadFastTravel;
 
         // Text entry. Characters come from Keyboard.onTextInput (layout, shift and dead keys handled by the
         // OS). The hook is static, so it is reset when the editor enters play mode without a domain reload
@@ -122,6 +129,9 @@ namespace OpenAT.View.UI
             Typed.AddRange(_textBuffer);
             _textBuffer.Clear();
             Consumed = false;
+            PadActive = false;
+            PadShoulder = 0;
+            PadFastTravel = false;
         }
 
         /// <summary>Clears one-frame flags (used for injected input).</summary>
@@ -135,6 +145,8 @@ namespace OpenAT.View.UI
             Typed.Clear();
             Wheel = 0;
             Consumed = false;
+            PadShoulder = 0;
+            PadFastTravel = false;
         }
 
         public bool Clicked(RectInt r) => LeftDown && !Consumed && r.Contains(Mouse);

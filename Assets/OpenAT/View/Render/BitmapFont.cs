@@ -5,12 +5,23 @@ namespace OpenAT.View.Render
 {
     public enum TextAlign { Left, Center, Right }
 
+    /// <summary>Text drawing in virtual pixels: the original bitmap fonts, or OpenAT's high-resolution <see cref="ScaledBitmapFont"/>.</summary>
+    public interface IFont
+    {
+        int LineHeight { get; }
+        int BlockLineHeight { get; }
+        int Measure(string s);
+        int Draw(Screen2D s, int x, int y, string text, Color32 tint, TextAlign align = TextAlign.Left);
+        int Draw(Screen2D s, int x, int y, string text, TextAlign align = TextAlign.Left);
+        int DrawBlock(Screen2D s, RectInt box, string text, Color32 tint, TextAlign align = TextAlign.Left, bool measureOnly = false);
+    }
+
     /// <summary>
     /// Draws text with an original .mcf font. Glyphs live in one texture strip (top-down);
     /// character codes are the original single-byte codes (see Formats/TextEncoding), the cell of a
     /// character comes from the font's glyph map (<see cref="McfFont.GlyphCell"/>).
     /// </summary>
-    public sealed class BitmapFont
+    public sealed class BitmapFont : IFont
     {
         public readonly McfFont Font;
         public readonly Texture2D Texture;

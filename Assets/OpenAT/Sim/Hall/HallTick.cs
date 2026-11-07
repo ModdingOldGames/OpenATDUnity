@@ -103,14 +103,22 @@ namespace OpenAT.Sim.Hall
                     if (hp.OnToilet != 0) { ToiletPause(pn, hp, p); continue; }   // held at the toilet door
                     if (hp.TalkPartner != 0 && World.Players[pn].IsComputer) continue;   // stands still while talked to
                     if (hp.PhonePartner != 0 && World.Players[pn].IsComputer && World.Options.ComputerPhonePose) continue;   // addition: holds still on the phone
-                    PlayerStep(p);
+                    // Stick walking (OpenAT): the pace decides how many steps this tick takes (0 to 3).
+                    int paced = StickSteps(hp, p);
+                    if (paced != 0) PlayerStep(p);
                     bool walkway = p.Position.Y / 22 + 5 == 13 && (P(p.Position.X / 44, p.Position.Y / 22 + 5) & 240) == 80;
-                    if (hp.IsStuck == 0 && p.Running && !walkway && hp.InHall)
+                    if (hp.IsStuck == 0 && p.Running && !walkway && hp.InHall && paced != 1)
                     {
                         UpdateWalkingDirection(pn);
                         int ph = p.Phase;
                         PlayerStep(p);
                         if (hp.IsStuck == 0 && p.Dir < 8) p.Phase = ph;
+                        if (paced == 3 && hp.IsStuck == 0 && hp.InHall)
+                        {
+                            UpdateWalkingDirection(pn);
+                            PlayerStep(p);
+                            if (hp.IsStuck == 0 && p.Dir < 8) p.Phase = ph;
+                        }
                     }
                     if (hp.Koffein > 0)
                     {

@@ -30,10 +30,13 @@ namespace OpenAT.View.Rooms.Planner
 
     /// <summary>
     /// A planner window ("BLOCK", rooms-and-ui-5b §1): style 0 = the globe-room filofax (double page,
-    /// tabs), style 1 = a laptop window (single for Info, double otherwise). Saved with the player.
+    /// tabs), style 1 = a laptop window (single for Info, double otherwise), style 2 = a schedule docked
+    /// beside the room on wide screens (OpenAT; single laptop-style window). Saved with the player.
     /// </summary>
     public sealed class Block
     {
+        public const int StyleFilofax = 0, StyleLaptop = 1, StyleDock = 2;
+
         public int Style;
         public Vector2Int Pos;
         public bool Double = true;
@@ -46,7 +49,7 @@ namespace OpenAT.View.Rooms.Planner
         /// <summary>Type of the window as opened by its laptop icon.</summary>
         public int WindowType;
 
-        public Vector2Int Size => Style == 0 ? new Vector2Int(482, 311) : Double ? new Vector2Int(396, 210) : new Vector2Int(199, 210);
+        public Vector2Int Size => Style == StyleFilofax ? new Vector2Int(482, 311) : Double ? new Vector2Int(396, 210) : new Vector2Int(199, 210);
 
         public Pane PaneOf(bool right) => right ? Right : Left;
 
@@ -86,6 +89,12 @@ namespace OpenAT.View.Rooms.Planner
         public readonly bool[] DisplayPlanes = { true, false, false, false };
         public readonly int[] DisplayRoutes = new int[4];
 
+        // ---- OpenAT planner improvements
+        /// <summary>Fleet index search and filters, shared by the globe room and the laptop.</summary>
+        public readonly FleetFilter Fleet = new FleetFilter();
+        /// <summary>Plane schedules docked beside the room on wide screens (style 2 blocks), in dock order.</summary>
+        public readonly List<Block> Docked = new List<Block>();
+
         public static PlannerState Of(Player p)
         {
             if (p == null) return new PlannerState();
@@ -103,6 +112,21 @@ namespace OpenAT.View.Rooms.Planner
             Filofax.Right.Type = BlockType.Orders;
             return Filofax;
         }
+    }
+
+    /// <summary>Fleet index filter (OpenAT): name search, plane type, state, scroll position.</summary>
+    public sealed class FleetFilter
+    {
+        public const int AnyState = 0, Problem = 1, Idle = 2, Airborne = 3, Ground = 4, StateCount = 5;
+        public string Search = "";
+        /// <summary>"Maker Model" of the plane type shown, empty = all.</summary>
+        public string Type = "";
+        public int State;
+        /// <summary>First visible row.</summary>
+        public int Scroll;
+
+        public bool Active => Search.Length > 0 || Type.Length > 0 || State != AnyState;
+        public void Reset() { Search = ""; Type = ""; State = AnyState; Scroll = 0; }
     }
 
     /// <summary>The object on the cursor while planning (rooms-and-ui-5b §6): route 1, order 2, freight 4.</summary>

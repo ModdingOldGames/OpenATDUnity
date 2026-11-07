@@ -71,12 +71,15 @@ namespace OpenAT.View.Rooms.Counters
 
         protected override void Hotspots(InputState input)
         {
+            if (PanelBlocksHotspots()) return;
             Exit(560, 0, 639, 439);
             CardHotspots();
+            TabHotspots();
         }
 
         protected override void OnClick(int id)
         {
+            if (TabClick(id)) return;
             if (id >= 0 && id < 6) Take(id);
         }
 
@@ -93,9 +96,10 @@ namespace OpenAT.View.Rooms.Counters
                 var o = Offer(i);
                 DrawCard(s, i, o.From, o.To, default);
             }
+            DrawTabs(s);
         }
 
-        protected override void DrawOverlay(Screen2D s)
+        protected override void DrawOfferTip(Screen2D s)
         {
             if (Hover < 0 || IsDialogOpen || Menus.IsOpen || !SlotFilled(Hover)) return;
             var o = Offer(Hover);

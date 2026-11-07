@@ -91,8 +91,10 @@ namespace OpenAT.View.Rooms.Counters
 
         protected override void Hotspots(InputState input)
         {
+            if (PanelBlocksHotspots()) return;
             Exit(0, 0, 80, 439);
             CardHotspots();
+            TabHotspots();
             // The running spider can be caught until the snake commits: first along its path, then at its end.
             if (_spider != null && !_snakeStrikes && _spider.ActiveClip == 1 && !HasSpider)
             {
@@ -114,6 +116,7 @@ namespace OpenAT.View.Rooms.Counters
                 _snakeStrikes = false;
                 return;
             }
+            if (TabClick(id)) return;
             if (id >= 0 && id < 6) Take(id);
         }
 
@@ -131,9 +134,12 @@ namespace OpenAT.View.Rooms.Counters
                 var o = Offer(i);
                 DrawCard(s, i, o.From, o.To, default);
             }
+            DrawTabs(s);
         }
 
-        protected override void DrawOverlay(Screen2D s)
+        protected override Vector2Int PanelHome => new Vector2Int(4, 4);
+
+        protected override void DrawOfferTip(Screen2D s)
         {
             if (Hover < 0 || IsDialogOpen || Menus.IsOpen || !SlotFilled(Hover)) return;
             var o = Offer(Hover);

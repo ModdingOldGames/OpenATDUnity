@@ -97,7 +97,7 @@ namespace OpenAT.View.Rooms.Framework
             if (_scenarioStep == 0)
             {
                 _scenarioStep = -1;
-                var arg = Environment.GetCommandLineArgs();
+                var arg = CommandLine.Args;
                 int i = Array.FindIndex(arg, a => string.Equals(a, "-openat-scenario", StringComparison.OrdinalIgnoreCase));
                 if (i < 0 || i + 1 >= arg.Length) return;
                 try { _scenario = Sim.Testing.Scenario.Parse(System.IO.File.ReadAllText(arg[i + 1])); }
@@ -288,7 +288,11 @@ namespace OpenAT.View.Rooms.Framework
                         if (!_startWaitHeld) { app.Ui.WaitCounter++; _startWaitHeld = true; }
                     }
                     // Safety net: a figure that cannot get there opens the briefing directly after 60 s.
-                    if (Time.unscaledTime - _startWalkSince < 60f) { PumpHall(app, w); return; }
+                    // OpenAT (SkipStartWalk): Esc, Space, a right click or the pad's B / Cross / Start skip the walk.
+                    var inp = app.InputNow;
+                    bool skip = w.Options.SkipStartWalk && Time.unscaledTime - _startWalkSince > 0.5f
+                                && (inp.Escape || inp.Space || inp.RightDown || inp.PadActive && inp.LeftDown);
+                    if (!skip && Time.unscaledTime - _startWalkSince < 60f) { PumpHall(app, w); return; }
                     _startWalk = -1;
                     ReleaseStartWait(app);
                 }

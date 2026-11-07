@@ -1,0 +1,18 @@
+{
+  // Day 3 of a free game with a fleet of 13 planes of three types, routes, orders and freight, in
+  // the globe room: fleet search, docked schedules and the planner improvements on wide screens.
+  "seed": 4711,
+  "homeCity": "London",
+  "advanceDays": 3,
+  "skipBriefing": true,
+  "time": "10:00",
+  "money": 200000000,
+  "items": ["laptop"],
+  "laptop": { "quality": 4 },
+  "planes": [ { "type": "114", "count": 6 }, { "type": "115", "count": 4 }, { "type": "116", "count": 3 } ],
+  "routes": 4,
+  "orders": 5,
+  "freight": 2,
+  "planFlights": true,
+  "room": "globe"
+}

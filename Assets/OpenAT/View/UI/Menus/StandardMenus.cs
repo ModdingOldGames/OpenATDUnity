@@ -411,6 +411,7 @@ namespace OpenAT.View.UI.Menus
         public override void Update(InputState input, Vector2Int l)
         {
             _hover = -1;
+            for (int k = 0; k < 13 && _page + k < Rows.Count; k++) PadTarget(216, 25 + 13 * k, 387, 37 + 13 * k);   // gamepad (OpenAT)
             bool prev = _page > 0 && Hot(l, 196, 192, 212, 208, 0, CursorLook.Left);
             bool next = _page + 13 < Rows.Count && Hot(l, 374, 199, 390, 215, 0, CursorLook.Right);
             if (!prev && !next && l.x >= 216 && l.x <= 387 && l.y >= 25 && l.y <= 212)
@@ -511,6 +512,7 @@ namespace OpenAT.View.UI.Menus
 
         public override void Update(InputState input, Vector2Int l)
         {
+            for (int k = 0; k < Count; k++) if (Listed(k)) PadTarget(32, 4 + 13 * k, 204, 16 + 13 * k);   // gamepad (OpenAT)
             if (l.x < 32 || l.x > 204 || l.y < 4 || l.y > Size.y - 1) return;
             int i = (l.y - 4) / 13;
             if (i >= Count || !Listed(i)) return;

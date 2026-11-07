@@ -179,6 +179,7 @@ namespace OpenAT.View.Rooms.Framework
         {
             var m = App.InputNow.Mouse;
             int x = m.x - RX, y = m.y;
+            App.Ui.Targets.Add(x1 + RX, y1, x2 + RX, y2);   // gamepad target (OpenAT)
             if (x < x1 || x > x2 || y < y1 || y > y2) return false;
             _hoverId = id;
             App.Ui.Cursor = look;
@@ -225,7 +226,9 @@ namespace OpenAT.View.Rooms.Framework
             }
 
             _hoverId = -1;
-            if (!inBar) Hotspots(input);
+            // With the pad the hotspots are registered (as gamepad targets) also while the cursor is in the status bar,
+            // so the d-pad can come back up (OpenAT); they cannot be hovered from there.
+            if (!inBar || input.PadActive) Hotspots(input);
             if (input.LeftDown && !input.Consumed && !inBar && _hoverId >= 0)
             {
                 input.Consume();
@@ -234,7 +237,8 @@ namespace OpenAT.View.Rooms.Framework
                 else OnClick(_hoverId);
                 return;
             }
-            if (input.RightDown && !input.Consumed && !inBar)
+            // Right click leaves the room; the pad's B does so wherever its cursor is (OpenAT).
+            if (input.RightDown && !input.Consumed && (!inBar || input.PadActive))
             {
                 input.Consume();
                 if (Tutorial.TutorialView.BlockRightClick(this)) return;

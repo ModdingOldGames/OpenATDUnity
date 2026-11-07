@@ -101,6 +101,39 @@ namespace OpenAT.Tests
         }
 
         [Fact]
+        public void EstimateResult_MatchesTheBookingOfAContractFlight()
+        {
+            var w = OpsWorld.NewWorld();
+            var p = w.Players[0];
+            OpsWorld.UsePlaneCrew(w);
+            var pl = OpsWorld.AddPlane(w, p);
+            int id = p.Contracts.Add(new Contract { From = OpsWorld.C(1), To = OpsWorld.C(2), Persons = 90, Date = 0, LastDate = 3, Premium = 40000, Penalty = 1 });
+            Assert.True(w.Execute(new PlaceFlightCommand(0, pl.Id, FlightKind.Contract, id, 0, 12)).Ok);
+            int idx = System.Array.FindIndex(pl.Plan.Entries, x => x.Kind == FlightKind.Contract);
+            FlightOps.EstimateResult(w, p, pl, pl.Plan.Entries[idx], out long income, out long cost);
+            FlightBooked b = null;
+            w.Events.Subscribe<FlightBooked>(e => b = e);
+            FlightOps.BookFlight(w, p, pl, idx);
+            Assert.Equal(40000, income);
+            Assert.Equal(b.Income, income);
+            Assert.Equal(b.FuelCost + b.FoodCost, cost);
+        }
+
+        [Fact]
+        public void EstimateResult_FreightFlightsShareThePremiumByTons()
+        {
+            var w = OpsWorld.NewWorld();
+            var p = w.Players[0];
+            var pl = OpsWorld.AddPlane(w, p);
+            int cap = pl.Seats / 10;
+            int id = p.Freights.Add(new FreightContract { From = OpsWorld.C(1), To = OpsWorld.C(2), Tons = cap * 2, TonsLeft = cap * 2, TonsOpen = cap * 2, Date = 0, LastDate = 5, Premium = 60000, Penalty = 1 });
+            var e = new FlightEntry { Kind = FlightKind.Freight, ObjectId = id, From = OpsWorld.C(1), To = OpsWorld.C(2), Passengers = cap };
+            FlightOps.EstimateResult(w, p, pl, e, out long income, out long cost);
+            Assert.Equal(30000, income);
+            Assert.Equal(w.FuelCost.Estimate(w, p, e.From, e.To, pl.Burn, pl.Speed), cost);
+        }
+
+        [Fact]
         public void Penalty_HumansPayTheMorningAfter_ComputersNever()
         {
             var w = OpsWorld.NewWorld();

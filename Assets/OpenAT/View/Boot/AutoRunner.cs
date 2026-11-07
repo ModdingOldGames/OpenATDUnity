@@ -9,7 +9,7 @@ namespace OpenAT.View.Boot
     /// <summary>
     /// Scripted input for automated checks: <c>-openat-auto "wait 30; click 320 240; shot out.png; quit"</c>.
     /// Commands: <c>wait N</c> (frames), <c>move X Y</c>, <c>click X Y</c>, <c>rclick X Y</c>,
-    /// <c>key esc|enter|space|f2|f3|f4|tab|backspace</c>, <c>type TEXT</c> (typed characters), <c>shot PATH</c>, <c>quit</c>; drag-and-drop with <c>down X Y</c> (press and hold),
+    /// <c>key esc|enter|space|f2|f3|f4|tab|backspace</c>, <c>type TEXT</c> (typed characters), <c>mod ctrl|shift|ctrl+shift|none</c> (held modifiers), <c>shot PATH</c>, <c>quit</c>; drag-and-drop with <c>down X Y</c> (press and hold),
     /// <c>move X Y</c> (while held) and <c>up X Y</c> (release); <c>money N</c> sets the local player's cash, <c>room N</c> enters a room (test scripts); <c>live</c> switches to the real devices for the rest of the run. Coordinates are virtual pixels;
     /// prefix X with <c>c</c> (e.g. <c>c320</c>) to offset by the centring margin of 640-wide layouts.
     /// </summary>
@@ -86,6 +86,11 @@ namespace OpenAT.View.Boot
                             if (parts[1] == "backspace") _input.Backspace = true;
                             _waitFrames = 1;
                             return;
+                        case "mod":
+                            // Held modifier keys for the following commands: "mod ctrl", "mod shift", "mod ctrl+shift", "mod none".
+                            _input.Ctrl = parts[1].Contains("ctrl");
+                            _input.Shift = parts[1].Contains("shift");
+                            break;
                         case "type":
                             // Typed characters (save names etc.): the rest of the command.
                             foreach (char ch in string.Join(" ", parts, 1, parts.Length - 1)) _input.Typed.Add(ch);
@@ -108,6 +113,12 @@ namespace OpenAT.View.Boot
                             _waitFrames = 2;
                             return;
                         case "shot": _pendingShot = parts[1]; _waitFrames = 1; return;
+                        case "pad":
+                            // Virtual gamepad (tests of the gamepad path): "pad lx ly rx ry [a b x y lb rb start select up down left right l3 r3 lt rt]".
+                            Pad(parts);
+                            Debug.Log("OpenAT auto: pad, " + _app.Ui.Targets.Rects.Count + " targets, cursor " + _app.InputNow.Mouse + (_app.Ui.Pad.Active ? " (pad)" : ""));
+                            _waitFrames = 1;
+                            return;
                         // Hand input back to the real mouse and keyboard (tests of the device path); the script goes on.
                         case "live": _app.InjectedInput = null; break;
                         default:
@@ -127,6 +138,37 @@ namespace OpenAT.View.Boot
                     Debug.LogError("OpenAT auto: bad command '" + string.Join(" ", parts) + "': " + e.Message);
                 }
             }
+        }
+
+        UnityEngine.InputSystem.Gamepad _pad;
+
+        void Pad(string[] parts)
+        {
+            if (_pad == null) _pad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
+            _pad.MakeCurrent();
+            float F(int i) => parts.Length > i ? float.Parse(parts[i], CultureInfo.InvariantCulture) : 0f;
+            var st = new UnityEngine.InputSystem.LowLevel.GamepadState { leftStick = new Vector2(F(1), F(2)), rightStick = new Vector2(F(3), F(4)) };
+            for (int i = 5; i < parts.Length; i++)
+            {
+                switch (parts[i])
+                {
+                    case "a": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.South); break;
+                    case "b": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.East); break;
+                    case "x": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.West); break;
+                    case "y": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.North); break;
+                    case "lb": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.LeftShoulder); break;
+                    case "rb": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.RightShoulder); break;
+                    case "start": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.Start); break;
+                    case "select": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.Select); break;
+                    case "up": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.DpadUp); break;
+                    case "down": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.DpadDown); break;
+                    case "left": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.DpadLeft); break;
+                    case "right": st = st.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.DpadRight); break;
+                    case "lt": st.leftTrigger = 1; break;
+                    case "rt": st.rightTrigger = 1; break;
+                }
+            }
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(_pad, st);
         }
 
         public void AfterFrame()

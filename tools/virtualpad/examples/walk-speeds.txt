@@ -1,0 +1,16 @@
+# In the airport hall (Options > Other > OpenAT extras > GAMEPAD must be ON).
+# Shows the walking pace following the left stick: slow, normal, running, faster running, stop.
+waitready
+wait 1000
+ramp ls 0 0 0.3 0 400     # slight push: slow walk
+wait 2500
+ramp ls 0.3 0 0.6 0 300   # normal walk
+wait 2500
+ramp ls 0.6 0 0.85 0 300  # running
+wait 2500
+ramp ls 0.85 0 1 0 200    # full push: fastest
+wait 2500
+ramp ls 1 0 0 0 300       # let go: the figure stops
+wait 1000
+state
+reset

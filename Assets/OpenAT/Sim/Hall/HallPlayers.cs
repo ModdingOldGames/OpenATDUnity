@@ -36,6 +36,7 @@ namespace OpenAT.Sim.Hall
         public bool WalkToRoom(int player, int room)
         {
             var hp = Players[player];
+            hp.StickPace = 0;   // walking to a room ends stick walking (OpenAT)
             if (hp.RunningToToilet) return true;
             if (World.Players[player].IsOut) return false;
             int closed = ClosedMenu(room);
@@ -66,6 +67,7 @@ namespace OpenAT.Sim.Hall
         public void WalkToClick(int player, Pt click)
         {
             var hp = Players[player];
+            hp.StickPace = 0;   // a click ends stick walking (OpenAT)
             int room = MarkedArea(click);
             if (hp.RunningToToilet) return;
             if (room == RoomIds.Wall)

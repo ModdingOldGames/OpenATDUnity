@@ -119,6 +119,8 @@ namespace OpenAT.View.Rooms.Planner
         protected override void OnRoomEnter()
         {
             if (P != null) ValidateBlocks();
+            PlannerTexts.Language = Assets.Language;
+            ApplyLayout();
         }
 
         protected override void OnLeaveRoom()
@@ -132,6 +134,7 @@ namespace OpenAT.View.Rooms.Planner
         protected void ValidateBlocks()
         {
             foreach (var b in Blocks) ValidatePanes(b);
+            ValidateDocked();
         }
 
         protected void ValidatePanes(Block b)
@@ -167,7 +170,7 @@ namespace OpenAT.View.Rooms.Planner
 
         protected Block HitBlock(Vector2Int screen)
         {
-            foreach (var b in Blocks)
+            foreach (var b in AllBlocks)
             {
                 if (b.Closing) continue;
                 var l = screen - BlockScreen(b);
@@ -225,11 +228,14 @@ namespace OpenAT.View.Rooms.Planner
         public override void Update(InputState input, float dt)
         {
             if (P == null || Menus == null) { base.Update(input, dt); return; }
+            ApplyLayout();
             TurnDir = 0;
             P.PlannerDragging = _dragMode != 0;
             TipBlock = null; TipEntry = -1; TipPlane = null; CityTipBlock = null; CityTipId = -1;
             bool inBar = input.Mouse.y >= Screen.Height - StatusBar.Height;
             if (InputBlocked(input)) { base.Update(input, dt); return; }
+            if (Enhanced && !Menus.IsOpen && !IsDialogOpen) EnhancedKeys(input);
+            if (!Menus.IsOpen && !IsDialogOpen) { AddPadTargets(); PadShoulder(input); }
             if (!Menus.IsOpen && !IsDialogOpen && !inBar) PlannerInput(input);
             else if (!input.LeftHeld) { _moving = null; EndEdgeDrag(); _repeat = null; }
             base.Update(input, dt);
@@ -244,7 +250,13 @@ namespace OpenAT.View.Rooms.Planner
             if (_moving != null)
             {
                 if (input.LeftHeld) _moving.Pos = ClampBlock(_moving, canvas - _moveGrab);
-                else _moving = null;
+                else
+                {
+                    // OpenAT: a click (no drag) on a laptop plane window's title opens the fleet index.
+                    if (Enhanced && !Expanded && (m - _moveDownAt).sqrMagnitude <= 9 && _moving.Left.IsDetail(BlockType.Planes) && In(TitleRect(_moving), _moveGrab))
+                        OpenFleetPopup();
+                    _moving = null;
+                }
                 App.Ui.Cursor = CursorLook.Hot;
                 input.Consume();
                 return;
@@ -262,13 +274,19 @@ namespace OpenAT.View.Rooms.Planner
                 else if (Time.unscaledTime >= _repeatAt) { _repeat(); _repeatAt = Time.unscaledTime + 0.13f; }
             }
 
+            if (EnhancedInput(input, canvas))
+            {
+                if (input.LeftUp) _carryTakenThisClick = false;
+                return;
+            }
+
             var hb = HitBlock(m);
 
             if (input.RightDown && !input.Consumed)
             {
                 // Tutorial up to step 1506: right click does nothing at all (rooms-and-ui-5b §6.5).
                 if (Tutorial.TutorialView.BlockRightClick(this)) { input.Consume(); return; }
-                if (!Carry.Empty) { Carry = Carry.None; input.Consume(); return; }
+                if (!Carry.Empty) { Carry = Carry.None; input.Consume(); PadAfterPlace(input); return; }
                 if (hb != null)
                 {
                     input.Consume();
@@ -277,10 +295,10 @@ namespace OpenAT.View.Rooms.Planner
                     {
                         bool right = side == 1;
                         if (right && !hb.Double) continue;
-                        var g = Geom(hb, right);
+                        var g = PGeom(hb, right);
                         if (InClient(g, l) && !hb.PaneOf(right).IsIndex) { BackToIndex(hb.PaneOf(right)); UpdatePages(hb.PaneOf(right), hb); return; }
                     }
-                    BlockRightClick(hb);
+                    if (hb.Style == Block.StyleDock) State.Docked.Remove(hb); else BlockRightClick(hb);
                     return;
                 }
                 return; // base: leave the room
@@ -318,7 +336,10 @@ namespace OpenAT.View.Rooms.Planner
             if (hb != null)
             {
                 var l = m - BlockScreen(hb);
-                ChromeHover(hb, l);
+                if (!NavHover(hb, l))
+                {
+                    if (hb.Style == Block.StyleDock) DockChromeHover(hb, l); else ChromeHover(hb, l);
+                }
                 HoverPanes(hb, l, input);
                 if (!Carry.Empty) App.Ui.Cursor = CursorLook.Hot;
             }
@@ -329,19 +350,21 @@ namespace OpenAT.View.Rooms.Planner
             l.x >= g.Client.x - 1 && l.x < g.Client.x + ClientW && l.y >= g.Client.y - 1 && l.y < g.Client.y + ClientH;
 
         /// <summary>Starts dragging a block by its title strip.</summary>
-        protected void BeginMove(Block b, Vector2Int local) { _moving = b; _moveGrab = local; }
+        protected void BeginMove(Block b, Vector2Int local) { _moving = b; _moveGrab = local; _moveDownAt = App.InputNow.Mouse; }
+        Vector2Int _moveDownAt;
 
         /// <summary>Registers an auto-repeat action for a held button.</summary>
         protected void RepeatWhileHeld(Action a) { _repeat = a; _repeatAt = Time.unscaledTime + 1f; }
 
         bool BlockLeftDown(Block b, Vector2Int l, InputState input, bool dbl)
         {
-            if (ChromeClick(b, l, input)) return true;
+            if (NavClick(b, l)) return true;
+            if (b.Style == Block.StyleDock ? DockChromeClick(b, l) : ChromeClick(b, l, input)) return true;
             for (int side = 0; side < 2; side++)
             {
                 bool right = side == 1;
                 if (right && !b.Double) continue;
-                var g = Geom(b, right);
+                var g = PGeom(b, right);
                 var pane = b.PaneOf(right);
                 if (pane.Type == BlockType.None) continue;
                 if (pane.Page > 0 && PaneGeom.In(g.Prev, l)) { PageStep(b, pane, -1); RepeatWhileHeld(() => PageStep(b, pane, -1)); return true; }
@@ -369,7 +392,7 @@ namespace OpenAT.View.Rooms.Planner
             UpdatePagesFor(pane);
             // Reopen on the page that contains the previous selection.
             int idx = IndexOfItem(pane.Type, sel);
-            pane.Page = idx >= 0 ? idx / BlockType.ListPageSize(pane.Type) : 0;
+            pane.Page = idx >= 0 ? idx / PageSize(pane) : 0;
             pane.Page = Mathf.Clamp(pane.Page, 0, Math.Max(0, pane.Pages - 1));
         }
 
@@ -435,11 +458,11 @@ namespace OpenAT.View.Rooms.Planner
 
         void ListClick(Block b, Pane pane, bool right, Vector2Int c, InputState input, bool dbl)
         {
-            int rh = BlockType.RowHeight(pane.Type);
+            int rh = RowH(pane);
             if (c.y < 0) return;
             int row = c.y / rh;
-            int idx = pane.Page * BlockType.ListPageSize(pane.Type) + row;
-            if (row >= BlockType.ListPageSize(pane.Type)) return;
+            int idx = pane.Page * PageSize(pane) + row;
+            if (row >= PageSize(pane)) return;
             switch (pane.Type)
             {
                 case BlockType.Planes:
@@ -447,6 +470,7 @@ namespace OpenAT.View.Rooms.Planner
                         var l = PlaneList(b);
                         if (idx >= l.Count || !Tutorial.TutorialView.PlaneDetailAllowed) break;
                         OpenDetail(b, pane, l[idx].Id);
+                        PadAfterOpenPlane(b, input);
                         if (Tutorial.TutorialView.At(Sim.Tutorial.TutorialStep.OpenPlane)) Tutorial.TutorialView.PlaneOpened(l[idx].Name);
                         break;
                     }
@@ -469,6 +493,7 @@ namespace OpenAT.View.Rooms.Planner
                         if (info) { if (!Tutorial.TutorialView.BlockOrderInfo()) OpenDetail(b, pane, id); return; }
                         if (dbl && GridVisible(b) && !Carry.Empty && pane.Type != BlockType.Freight && Tutorial.TutorialView.ShortcutsAllowed) { Append(b); return; }
                         TakePostIt(b, pane.Type, id, input);
+                        PadAfterTake(b, input);
                         if (!Carry.Empty && pane.Type == BlockType.Orders && Tutorial.TutorialView.At(Sim.Tutorial.TutorialStep.TakeOrder)) Tutorial.TutorialView.OrderTaken();
                         break;
                     }
@@ -571,7 +596,7 @@ namespace OpenAT.View.Rooms.Planner
         /// <summary>Cell under a block-local point: day row 0..6 and hour 0..23.</summary>
         protected bool InGrid(Block b, Vector2Int l, out int row, out int hour)
         {
-            var c = l - Geom(b, false).Client;
+            var c = l - PGeom(b, false).Client;
             row = hour = -1;
             if (c.x < GridX || c.x > GridX + 24 * CellW - 1 || c.y < GridY || c.y > GridY + 7 * CellH - 1) return false;
             hour = (c.x - GridX) / CellW;
@@ -599,7 +624,7 @@ namespace OpenAT.View.Rooms.Planner
                 return;
             }
             if (pane.Page != 0) return;
-            var l = c + Geom(b, false).Client;
+            var l = c + PGeom(b, false).Client;
             // Extend / delete buttons (§5.1, §6.7).
             if (c.x >= 22 && c.x <= 58 && c.y >= 150 && c.y <= 164)
             {
@@ -618,15 +643,24 @@ namespace OpenAT.View.Rooms.Planner
             if (!Carry.Empty) { Place(b, l, input); return; }
             int abs = (W.Clock.Date + row) * 24 + hour;
             int ei = EntryAt(pl, abs);
-            if (ei < 0) return;
+            if (ei < 0) { ClearSelection(); return; }
             var e = pl.Plan.Entries[ei];
-            if (e.Kind == FlightKind.Auto || !e.IsFuture(W.Clock.Date, W.Clock.Hour)) return;
+            if (e.Kind == FlightKind.Auto || !e.IsFuture(W.Clock.Date, W.Clock.Hour))
+            {
+                // OpenAT: say why the flight cannot be edited instead of ignoring the click.
+                Notice(PlannerTexts.Get(e.Kind == FlightKind.Auto ? "auto.why" : "locked"), input.Mouse);
+                return;
+            }
+            // OpenAT: Ctrl+click selects the flight for setting its departure precisely (same move command).
+            if (Enhanced && input.Ctrl) { Select(b, pl, e); return; }
+            ClearSelection();
             // Edges start a move (§6.5).
             if (abs == e.StartAbs || abs == e.LandAbs)
             {
                 _dragMode = abs == e.StartAbs ? 1 : 2;
                 _dragPlane = pl.Id; _dragKind = e.Kind; _dragObject = e.ObjectId; _dragStartAbs = e.StartAbs;
                 _dragGrabOffset = abs - e.StartAbs;
+                _dragBlock = b;
                 return;
             }
             // Pick up (§6.2); Shift with a route keeps it in the plan.
@@ -639,16 +673,17 @@ namespace OpenAT.View.Rooms.Planner
         }
 
         int _dragGrabOffset;
+        Block _dragBlock;
 
         void EdgeDragStep(InputState input)
         {
-            var b = TopBlock;
+            var b = _dragBlock ?? TopBlock;
             var pl = P.Planes.Find(_dragPlane);
             if (b == null || pl == null || !GridVisible(b) || SelectedPlane(b) != pl) { EndEdgeDrag(); return; }
             int ei = FindEntry(pl, _dragKind, _dragObject, _dragStartAbs);
             if (ei < 0 || !pl.Plan.Entries[ei].IsFuture(W.Clock.Date, W.Clock.Hour)) { EndEdgeDrag(); return; }
             var l = input.Mouse - BlockScreen(b);
-            var c = l - Geom(b, false).Client;
+            var c = l - PGeom(b, false).Client;
             int hour = Mathf.FloorToInt((c.x - GridX) / (float)CellW);
             int row = Mathf.Clamp(Mathf.FloorToInt((c.y - GridY) / (float)CellH), 0, 6);
             int abs = (W.Clock.Date + row) * 24 + hour - _dragGrabOffset;
@@ -684,6 +719,7 @@ namespace OpenAT.View.Rooms.Planner
             P.PlannerDragging = false;
             var pl = P.Planes.Find(_dragPlane);
             if (pl != null) FlightPlanner.AfterEdit(W, P, pl);
+            _dragBlock = null;
         }
 
         /// <summary>Post-it width in cells for the carried object (duration + 1, §6.1).</summary>
@@ -696,7 +732,7 @@ namespace OpenAT.View.Rooms.Planner
         /// <summary>Snapped grid origin of the post-it centred on the cursor (§6.1); false when not over the grid.</summary>
         protected bool SnapPostIt(Block b, Vector2Int local, out int row, out int col)
         {
-            var c = local - Geom(b, false).Client;
+            var c = local - PGeom(b, false).Client;
             int w = CarryCells(SelectedPlane(b)) * CellW;
             col = Mathf.FloorToInt((c.x - w / 2f + 3 - GridX) / CellW);
             row = Mathf.FloorToInt((c.y - CellH / 2f + 9 - GridY) / CellH);
@@ -729,6 +765,7 @@ namespace OpenAT.View.Rooms.Planner
                     case "contract-done": Advise(2311); break;
                     case "contract-planned": Advise(2312); break;
                     case "route-not-rented": Advise(2314); break;
+                    default: Notice(FailText(r.Reason), input.Mouse); break;   // OpenAT: no silent refusal
                 }
                 return;
             }
@@ -742,6 +779,7 @@ namespace OpenAT.View.Rooms.Planner
                 if (f != null && f.TonsOpen > 0) return;
             }
             Carry = Carry.None;
+            PadAfterPlace(input);
         }
 
         /// <summary>Double-click on a list row: append after the last planned flight (§6.6).</summary>
@@ -754,6 +792,7 @@ namespace OpenAT.View.Rooms.Planner
             var cmd = new PlaceFlightCommand(P.Index, pl.Id, Carry.Kind, Carry.Id, last / 24, last % 24) { ClickDate = W.Clock.Date + 7, ClickHour = 0 };
             var r = W.Execute(cmd);
             if (!r.Ok && r.Reason == "too-far") Advise(2310);
+            else if (!r.Ok) Notice(FailText(r.Reason), App.InputNow.Mouse);
             Carry = Carry.None;
         }
 
@@ -853,7 +892,7 @@ namespace OpenAT.View.Rooms.Planner
             {
                 bool right = side == 1;
                 if (right && !b.Double) continue;
-                var g = Geom(b, right);
+                var g = PGeom(b, right);
                 var pane = b.PaneOf(right);
                 if (pane.Page > 0 && PaneGeom.In(g.Prev, l)) { App.Ui.Cursor = CursorLook.Hot; return; }
                 if (pane.Page < pane.Pages - 1 && PaneGeom.In(g.Next, l)) { App.Ui.Cursor = CursorLook.Hot; return; }
@@ -862,12 +901,12 @@ namespace OpenAT.View.Rooms.Planner
                 var c = l - (pane.IsIndex ? g.InputOrigin : g.Client);
                 if (pane.IsIndex)
                 {
-                    int rh = BlockType.RowHeight(pane.Type);
+                    int rh = RowH(pane), ps = PageSize(pane);
                     int row = c.y / Math.Max(1, rh);
-                    if (c.y >= 0 && row < BlockType.ListPageSize(pane.Type) && ListCount(b, pane.Type) > pane.Page * BlockType.ListPageSize(pane.Type) + row)
+                    if (c.y >= 0 && row < ps && ListCount(b, pane.Type) > pane.Page * ps + row)
                     {
                         App.Ui.Cursor = CursorLook.Hot;
-                        if (pane.Type == BlockType.Cities && !right) { CityTipBlock = b; CityTipId = CityList()[pane.Page * BlockType.ListPageSize(pane.Type) + row].Id; }
+                        if (pane.Type == BlockType.Cities && !right) { CityTipBlock = b; CityTipId = CityList()[pane.Page * ps + row].Id; }
                     }
                     continue;
                 }
@@ -883,6 +922,7 @@ namespace OpenAT.View.Rooms.Planner
                     if (ei < 0) continue;
                     var e = pl.Plan.Entries[ei];
                     if (b == TopBlock) { TipBlock = b; TipEntry = ei; TipPlane = pl; }
+                    if (Carry.Empty) SetHoverCard(b, pl, ei);
                     if (!Carry.Empty || e.Kind == FlightKind.Auto) continue;
                     bool unlocked = e.IsFuture(W.Clock.Date, W.Clock.Hour);
                     if (unlocked && (abs == e.StartAbs || abs == e.LandAbs)) App.Ui.Cursor = CursorLook.MoveH;
@@ -1000,7 +1040,7 @@ namespace OpenAT.View.Rooms.Planner
             else if (pane.IsIndex)
             {
                 int n = ListCount(b, pane.Type);
-                pages = Math.Max(1, (n + BlockType.ListPageSize(pane.Type) - 1) / BlockType.ListPageSize(pane.Type));
+                pages = Math.Max(1, (n + PageSize(pane) - 1) / PageSize(pane));
             }
             else
                 switch (pane.Type)

@@ -19,13 +19,13 @@ namespace OpenAT.View.Rooms.Planner
         static readonly Color32 Highlight = new Color32(32, 160, 255, 60);
         static readonly Color32 GreyOut = new Color32(120, 120, 120, 120);
 
-        protected BitmapFont TitleFont => IsLaptop ? Kit.NormalGreen ?? Kit.SmallBlack : Kit.SmallBlack;
-        protected BitmapFont F => Kit.SmallBlack;
+        protected IFont TitleFontFor(Block b) => _fonts != null && _fonts != StdFonts ? Fs.Title : Lap(b) ? (IFont)(Kit.NormalGreen ?? Kit.SmallBlack) : Fs.Title;
+        protected IFont F => Fs.Black;
 
         /// <summary>Sched sprite frame n (frame 0 = SCHED01, the laptop grid).</summary>
         protected Texture2D Sched(int frame) => Assets.Texture(Std2, "SCHED" + (frame + 1).ToString("00"));
 
-        protected static string Clip(BitmapFont f, string t, int w)
+        protected static string Clip(IFont f, string t, int w)
         {
             if (t == null) return "";
             if (f.Measure(t) <= w) return t;
@@ -39,7 +39,7 @@ namespace OpenAT.View.Rooms.Planner
         string Code(int id) => W.City(id)?.ShortCode ?? "?";
 
         /// <summary>"From - To" fitting in <paramref name="w"/> px: full names, name–code, code–code (§4.3).</summary>
-        protected string PairText(BitmapFont f, int from, int to, int w)
+        protected string PairText(IFont f, int from, int to, int w)
         {
             string a = CityName(from) + " - " + CityName(to);
             if (f.Measure(a) <= w) return a;
@@ -57,21 +57,29 @@ namespace OpenAT.View.Rooms.Planner
 
         // ------------------------------------------------------------------ blocks
 
-        /// <summary>Draws all blocks back to front, then the carried post-it.</summary>
-        protected void DrawBlocks(Screen2D s)
+        /// <summary>Draws the room's blocks back to front.</summary>
+        protected void DrawBlocks(Screen2D s) => DrawBlockList(s, Blocks);
+
+        /// <summary>Draws blocks back to front (room blocks or docked schedules).</summary>
+        protected void DrawBlockList(Screen2D s, IReadOnlyList<Block> bl)
         {
             var mouse = App.InputNow.Mouse;
-            var bl = Blocks;
             for (int i = bl.Count - 1; i >= 0; i--)
             {
                 var b = bl[i];
                 var sp = BlockScreen(b);
                 var l = mouse - sp;
-                DrawBlockChrome(s, b, sp.x, sp.y, l);
-                if (!BlockContentVisible(b)) continue;
-                DrawPane(s, b, false, sp, l);
-                if (b.Double) DrawPane(s, b, true, sp, l);
-                DrawBlockOverlay(s, b, sp.x, sp.y, l);
+                bool dock = b.Style == Block.StyleDock;
+                BeginBlockLook(s, b);
+                if (dock) DrawDockChrome(s, b, sp.x, sp.y); else DrawBlockChrome(s, b, sp.x, sp.y, l);
+                if (BlockContentVisible(b))
+                {
+                    DrawPane(s, b, false, sp, l);
+                    if (b.Double) DrawPane(s, b, true, sp, l);
+                    if (dock) DrawDockOverlay(s, b, sp.x, sp.y, l); else DrawBlockOverlay(s, b, sp.x, sp.y, l);
+                    DrawNav(s, b, sp, l);
+                }
+                EndBlockLook(s);
             }
         }
 
@@ -80,6 +88,7 @@ namespace OpenAT.View.Rooms.Planner
         /// <summary>The post-it on the cursor (§6.1), snapped over a visible grid.</summary>
         protected void DrawCarry(Screen2D s)
         {
+            DrawEnhancements(s);
             if (Carry.Empty) return;
             var m = App.InputNow.Mouse;
             var b = HitBlock(m);
@@ -88,12 +97,14 @@ namespace OpenAT.View.Rooms.Planner
             int x = m.x - cells * CellW / 2, y = m.y - CellH / 2;
             if (pl != null && SnapPostIt(b, m - BlockScreen(b), out int row, out int col))
             {
-                var o = BlockScreen(b) + Geom(b, false).Client;
-                x = o.x + GridX + col * CellW + (IsLaptop ? 1 : 0);
+                var o = BlockScreen(b) + PGeom(b, false).Client;
+                x = o.x + GridX + col * CellW + (Lap(b) ? 1 : 0);
                 y = o.y + GridY + row * CellH;
             }
             if (!CarryCitiesPublic(out int from, out int to)) return;
+            BeginBlockLook(s, b);
             DrawBar(s, x, y, Carry.Kind, cells, Code(from), Code(to), 0, false, true);
+            EndBlockLook(s);
         }
 
         bool CarryCitiesPublic(out int from, out int to)
@@ -108,57 +119,22 @@ namespace OpenAT.View.Rooms.Planner
             return false;
         }
 
-        /// <summary>A flight bar of <paramref name="cells"/> hour cells starting at (x,y) (§5.2).</summary>
-        protected void DrawBar(Screen2D s, int x, int y, int kind, int cells, string fromCode, string toCode, int okay, bool locked, bool full = true, int firstCell = 0, int lastCell = int.MaxValue)
-        {
-            int baseFrame = kind == FlightKind.Route ? 1 : kind == FlightKind.Contract ? 6 : kind == FlightKind.Freight ? 20 : 11;
-            for (int i = 0; i < cells; i++)
-            {
-                if (i < firstCell || i > lastCell) continue;
-                int frame;
-                if (kind == FlightKind.Auto)
-                    frame = i == 0 ? 11 : i == cells - 1 ? 15 : (i % 2 == 1 ? 13 : 14);
-                else
-                    frame = baseFrame + (i == 0 ? 0 : i == cells - 1 ? 4 : i == 1 ? 1 : i == cells - 2 ? 3 : 2);
-                s.Draw(Sched(frame), x + i * CellW, y);
-                if (okay != 0 && (kind == FlightKind.Contract || kind == FlightKind.Freight))
-                    s.Draw(Sched(i == 0 ? 41 : i == cells - 1 ? 45 : 44), x + i * CellW, y);
-            }
-            if (locked && cells > 1 && firstCell <= 1 && lastCell >= 1) s.Draw(Sched(17), x + CellW, y + 1);
-            DrawBarCodes(s, x, y, cells, fromCode, toCode, firstCell, lastCell);
-        }
+        /// <summary>A flight bar of <paramref name="cells"/> hour cells starting at (x,y) (§5.2, <see cref="WeekGrid.DrawBar"/>).</summary>
+        protected void DrawBar(Screen2D s, int x, int y, int kind, int cells, string fromCode, string toCode, int okay, bool locked, bool full = true, int firstCell = 0, int lastCell = int.MaxValue) =>
+            WeekGrid.DrawBar(s, Assets, Kit, x, y, kind, cells, fromCode, toCode, okay, locked, firstCell, lastCell, CodeFont);
 
-        /// <summary>
-        /// The two city codes of a bar (§5.2): departure on the upper line from the bar's left end, arrival on
-        /// the lower line right-aligned at its right end, so both fit even on a short bar. Flights under 4 h
-        /// use the very small font (shifted 2 px down / right); flights over 6 h move both codes one cell
-        /// inward. A code is only drawn on the row of its own end of the bar, and only if it stays on that row
-        /// (a bar that starts late in the day or lands early in the morning loses that code).
-        /// </summary>
-        void DrawBarCodes(Screen2D s, int x, int y, int cells, string fromCode, string toCode, int firstCell, int lastCell)
-        {
-            int hours = cells - 1;
-            bool tiny = hours < 4, inward = hours > 6;
-            var f = tiny ? Kit.VerySmall : Kit.SmallBlack;
-            if (f == null) return;
-            int nudge = tiny ? 2 : 0;
-            // Departure: needs the first cells of the bar (start + 2/3/4 hours) on the start row.
-            int fromNeed = tiny ? 2 : inward ? 4 : 3;
-            if (firstCell == 0 && lastCell >= Math.Min(fromNeed, hours))
-                f.Draw(s, x + (inward ? CellW : 2), y + 1 + nudge, fromCode);
-            // Arrival: on the landing row, which must hold at least three hours before the landing cell
-            // (two for the very small font).
-            int land = cells - 1;
-            int rowHours = firstCell > 0 ? land - firstCell : int.MaxValue;
-            if (lastCell >= land && (rowHours > 2 || (tiny && rowHours == 2)))
-                f.Draw(s, x + cells * CellW + (inward ? -4 : 1) + nudge, y + 10, toCode, TextAlign.Right);
-        }
+        IFont _codeFont;
+        /// <summary>Bar city codes: null (the original's fonts) unless a high-resolution block is drawn.</summary>
+        IFont CodeFont => _fonts != null && _fonts != StdFonts ? (_codeFont ?? (_codeFont = FineCodeFont(Kit))) : null;
+
+        /// <summary>The bar city codes of a high-resolution grid: the original's font, three quarters high.</summary>
+        public static IFont FineCodeFont(UiKit kit) => kit.SmallBlack == null ? null : new ScaledBitmapFont(kit.SmallBlack, 0.75f);
 
         // ------------------------------------------------------------------ panes
 
         void DrawPane(Screen2D s, Block b, bool right, Vector2Int bs, Vector2Int l)
         {
-            var g = Geom(b, right);
+            var g = PGeom(b, right);
             var pane = b.PaneOf(right);
             var o = bs + g.Client;
             var cm = l - g.Client;
@@ -168,18 +144,18 @@ namespace OpenAT.View.Rooms.Planner
             if (right && pane.Type == BlockType.None && b.Left.Type == BlockType.Cities)
             {
                 int cid = CityTipBlock == b && CityTipId >= 0 ? CityTipId : !b.Left.IsIndex ? b.Left.SelectedId : -1;
-                DrawCityTip(s, o, bs + g.Title, cid >= 0 ? W.City(cid) : null);
+                DrawCityTip(s, b, o, bs + g.Title, cid >= 0 ? W.City(cid) : null);
                 return;
             }
             if (pane.Type == BlockType.None && !tip) return;
             bool grid = !right && pane.IsDetail(BlockType.Planes) && pane.Page == 0;
-            if (IsLaptop && !grid)
+            if (Lap(b) && !grid)
             {
                 int wt = tip ? b.Left.Type : pane.Type;
                 if (Assets.Has("room/globe_b.gli", "BACK" + wt)) s.Draw(Assets.Texture("room/globe_b.gli", "BACK" + wt), o.x - 1, o.y - 2);
             }
             s.PushClip(new RectInt(o.x - 2, o.y - 2, ClientW + 4, ClientH + 2));
-            if (tip) DrawFlightTip(s, o);
+            if (tip) DrawFlightTip(s, b, o);
             else if (pane.IsIndex) DrawList(s, b, pane, right, o, cm - g.InputShift);   // rows hit from the original's mouse origin
             else
                 switch (pane.Type)
@@ -196,11 +172,13 @@ namespace OpenAT.View.Rooms.Planner
             if (!tip)
             {
                 string title = PaneTitle(pane);
-                var tf = TitleFont;
-                var tfont = pane.IsDetail(BlockType.Planes) && P.Planes.Find(pane.SelectedId) is Plane tp && PlaneRed(tp) ? Kit.SmallRed : tf;
-                int tx = bs.x + g.Title.x + (IsLaptop && right && pane.IsIndex ? 60 : 0);
-                tfont.Draw(s, tx, bs.y + g.Title.y, Clip(tfont, title, IsLaptop ? 130 : 170));
-                if (!IsLaptop) s.FillRect(new RectInt(bs.x + g.Title.x, bs.y + g.Title.y + 12, 170, 1), new Color32(0x30, 0x30, 0x30, 255));
+                var tf = TitleFontFor(b);
+                var tfont = pane.IsDetail(BlockType.Planes) && P.Planes.Find(pane.SelectedId) is Plane tp && PlaneRed(tp) ? Fs.Red : tf;
+                int tx = bs.x + g.Title.x + (Lap(b) && right && pane.IsIndex ? 60 : 0);
+                int tw = Lap(b) ? 130 : 170;
+                if (PlaneNavRects(b, right, out var navPrev, out _)) tw = Math.Min(tw, navPrev.x - g.Title.x - 3);
+                tfont.Draw(s, tx, bs.y + g.Title.y, Clip(tfont, title, tw));
+                if (!Lap(b)) s.FillRect(new RectInt(bs.x + g.Title.x, bs.y + g.Title.y + 12, 170, 1), new Color32(0x30, 0x30, 0x30, 255));
                 // The page number is always shown (also "1/1"), in the title font (green on the laptop).
                 if (pane.Pages >= 1)
                     tf.Draw(s, bs.x + g.PageNo.x, bs.y + g.PageNo.y, (pane.Page + 1) + "/" + pane.Pages, TextAlign.Center);
@@ -236,7 +214,8 @@ namespace OpenAT.View.Rooms.Planner
 
         void DrawList(Screen2D s, Block b, Pane pane, bool right, Vector2Int o, Vector2Int cm)
         {
-            int ps = BlockType.ListPageSize(pane.Type), rh = BlockType.RowHeight(pane.Type);
+            int ps = PageSize(pane), rh = RowH(pane);
+            bool fine = Fine(b);
             int first = pane.Page * ps;
             int hoverRow = cm.x >= 0 && cm.x < ClientW && cm.y >= 0 ? cm.y / rh : -1;
             switch (pane.Type)
@@ -249,7 +228,7 @@ namespace OpenAT.View.Rooms.Planner
                             var c = l[first + k];
                             bool own = P.BranchAt(c.Index).Owned;
                             if (k == hoverRow) s.FillRect(new RectInt(o.x, o.y + k * rh, ClientW, rh), Highlight);
-                            (own ? Kit.SmallBlack : Kit.SmallGrey).Draw(s, o.x + 2, o.y + k * rh + 1, Clip(F, c.Name, 168));
+                            (own ? Fs.Black : Fs.Grey).Draw(s, o.x + 2, o.y + k * rh + 1, Clip(F, c.Name, 168));
                         }
                         break;
                     }
@@ -272,7 +251,7 @@ namespace OpenAT.View.Rooms.Planner
                             int y = o.y + k * rh;
                             if (k == hoverRow) s.FillRect(new RectInt(o.x, y, ClientW, rh), Highlight);
                             bool grey = filter && (W.Distance(from, to) > pl.Range * 1000 || Duration(pl, from, to) >= 24 || need > pl.MaxPassengers + pl.MaxPassengersFC);
-                            var f = grey ? Kit.SmallGrey : PlaneRed(pl) ? Kit.SmallRed : F;
+                            var f = grey ? Fs.Grey : PlaneRed(pl) ? Fs.Red : F;
                             // Name at x 0, condition left-aligned at x 123, location line below at x 0, all in the
                             // row's font (black, or red for a crew shortfall/problem); verified on the running original.
                             f.Draw(s, o.x, y + 1, Clip(f, pl.Name, 115));
@@ -280,14 +259,14 @@ namespace OpenAT.View.Rooms.Planner
                             string where = PlaneLocation.IsOnGround(pl.Location)
                                 ? Std("Schd", 1105) + " " + CityName(pl.Location)
                                 : Std("Schd", 1102) + " " + CityName(NextDestination(pl));
-                            f.Draw(s, o.x, y + 11, Clip(f, where, 168));
+                            f.Draw(s, o.x, y + (fine ? 9 : 11), Clip(f, where, 168));
                         }
                         break;
                     }
                 case BlockType.Orders:
                 case BlockType.Freight:
                 case BlockType.Routes:
-                    DrawRightList(s, b, pane, o, first, ps, rh, hoverRow);
+                    DrawRightList(s, b, pane, o, first, ps, rh, hoverRow, fine);
                     break;
             }
         }
@@ -299,7 +278,7 @@ namespace OpenAT.View.Rooms.Planner
             return pl.Plan.StartCity;
         }
 
-        void DrawRightList(Screen2D s, Block b, Pane pane, Vector2Int o, int first, int ps, int rh, int hoverRow)
+        void DrawRightList(Screen2D s, Block b, Pane pane, Vector2Int o, int first, int ps, int rh, int hoverRow, bool fine)
         {
             var info = Assets.Texture(Std2, "INFO01");
             bool gridOpen = GridVisible(b);
@@ -350,14 +329,17 @@ namespace OpenAT.View.Rooms.Planner
                 int flags = RowFlags(b, pane.Type, id);
                 bool grey = gridOpen && flags != 0;
                 if (k == hoverRow && !grey) s.FillRect(new RectInt(o.x, y, ClientW, rh), Highlight);
-                var f = grey ? Kit.SmallGrey : F;
-                s.Draw(Assets.Texture(Std2, post), o.x + 1, y + 2);
-                s.Draw(info, o.x + 3, y + 12);
+                var f = grey ? Fs.Grey : F;
+                // High-resolution rows are shorter: smaller icons, the second line closer.
+                float ic = fine ? 0.7f : 1f;
+                int tx = fine ? 13 : 16, l2 = fine ? 9 : 12;
+                DrawIcon(s, Assets.Texture(Std2, post), o.x + 1, y + (fine ? 1 : 2), ic);
+                DrawIcon(s, info, o.x + (fine ? 2 : 3), y + (fine ? 9.5f : 12), ic);
                 int rw = f.Measure(line1Right);
-                f.Draw(s, o.x + 16, y + 1, PairText(f, from, to, Math.Min(142, 150 - rw)));
+                f.Draw(s, o.x + tx, y + 1, PairText(f, from, to, Math.Min(142, 150 - rw) + 16 - tx));
                 f.Draw(s, o.x + 168, y + 1, line1Right, TextAlign.Right);
-                f.Draw(s, o.x + 16, y + 12, line2);
-                f.Draw(s, o.x + 168, y + 12, line2Right, TextAlign.Right);
+                f.Draw(s, o.x + tx, y + l2, line2);
+                f.Draw(s, o.x + 168, y + l2, line2Right, TextAlign.Right);
             }
         }
 
@@ -397,7 +379,7 @@ namespace OpenAT.View.Rooms.Planner
                         // Crew page (rooms-and-ui-5b §4.2): heading (2,4), "pilots" (10,17), then the assigned
                         // workers by name and one "missing" line per empty seat at x 18, 13 px apart, in the
                         // normal grey font; then "attendants" the same way.
-                        var grey = Kit.NormalGrey ?? Kit.SmallGrey;
+                        var grey = Fs.Dark;
                         int y = o.y + 4;
                         F.Draw(s, o.x + 2, y, Std("Plne", 1040)); y += 13;
                         F.Draw(s, o.x + 10, y, Std("Plne", 1041)); y += 13;
@@ -421,7 +403,7 @@ namespace OpenAT.View.Rooms.Planner
                         y += 6;
                         long sum = pl.BalanceSum;
                         F.Draw(s, o.x, y, Std("XPrt", 2002));
-                        (sum < 0 ? Kit.SmallRed : F).Draw(s, o.x + 168, y, Money(sum), TextAlign.Right);
+                        (sum < 0 ? Fs.Red : F).Draw(s, o.x + 168, y, Money(sum), TextAlign.Right);
                         break;
                     }
                 default:
@@ -435,14 +417,24 @@ namespace OpenAT.View.Rooms.Planner
         void DrawGrid(Screen2D s, Block b, Plane pl, Vector2Int o, Vector2Int cm)
         {
             int today = W.Clock.Date;
-            if (IsLaptop) s.Draw(Sched(0), o.x + 21, o.y - 2);
+            bool lap = Lap(b);
+            if (lap) s.Draw(Sched(0), o.x + 21, o.y - 2);
             else s.Draw(Assets.Texture("room/globe_a.gli", "TIMETAB1"), o.x + 21, o.y - 2);
+            // OpenAT: the hovered day and hour stand out (red day label, faint hour column).
+            int hovRow = -1;
+            if (Enhanced && cm.x >= GridX && cm.x < GridX + 24 * CellW && cm.y >= GridY && cm.y < GridY + 7 * CellH)
+            {
+                hovRow = (cm.y - GridY) / CellH;
+                int hc = (cm.x - GridX) / CellW;
+                s.FillRect(new RectInt(o.x + GridX + hc * CellW, o.y + GridY, CellW, 7 * CellH), new Color32(255, 255, 255, 40));
+            }
             // Day labels: short weekday names in the small black font at (2, 19 + 19·row), today first.
             for (int d = 0; d < 7; d++)
-                F.Draw(s, o.x + 2, o.y + 19 + 19 * d, Std("Schd", 3000 + Weekday(W, today + d)));
+                (d == hovRow ? Fs.Red : F).Draw(s, o.x + 2, o.y + 19 + 19 * d, Std("Schd", 3000 + Weekday(W, today + d)));
             // Past time of today.
             int past = W.Clock.MinuteOfDay / 10;
             s.FillRect(new RectInt(o.x + GridX, o.y + GridY, Math.Min(144, past), CellH), new Color32(0, 0, 0, 80));
+            if (Enhanced) s.FillRect(new RectInt(o.x + GridX + Math.Min(143, past), o.y + GridY - 1, 1, CellH + 1), WeekGrid.NowLine);   // OpenAT: current time
             // Breakdown bar.
             if (pl.Problem > 0)
             {
@@ -461,46 +453,24 @@ namespace OpenAT.View.Rooms.Planner
                 for (int d = 0; d < 7; d++)
                     if (today + d < winFrom || today + d > winTo) s.Draw(Sched(51), o.x + GridX - 1, o.y + GridY + d * CellH);
 
-            var f = pl.Plan.Entries;
-            int first = today * 24, last = first + 7 * 24 - 1;
-            for (int i = 0; i < FlightPlan.Size; i++)
-            {
-                var e = f[i];
-                if (e.Kind == 0 || e.LandAbs < first || e.StartAbs > last) continue;
-                int cells = e.LandAbs - e.StartAbs + 1;
-                bool locked = !e.IsFuture(today, W.Clock.Hour);
-                // Bars may cross midnight: draw one segment per day row.
-                int abs = e.StartAbs;
-                while (abs <= e.LandAbs)
-                {
-                    int rowStart = abs - abs % 24;
-                    int segEnd = Math.Min(e.LandAbs, rowStart + 23);
-                    int row = rowStart / 24 - today;
-                    if (row >= 0 && row < 7)
-                    {
-                        int x = o.x + GridX + (e.StartAbs - rowStart) * CellW;
-                        int y = o.y + GridY + row * CellH;
-                        DrawBar(s, x, y, e.Kind, cells, Code(e.From), Code(e.To), e.Okay, locked, true, abs - e.StartAbs, segEnd - e.StartAbs);
-                        if (e.GateWarning && abs == e.StartAbs) s.Draw(Sched(18), o.x + GridX + (abs - rowStart) * CellW, y + 2);
-                    }
-                    abs = segEnd + 1;
-                }
-            }
+            WeekGrid.DrawEntries(s, Assets, Kit, W, pl.Plan.Entries, o, Enhanced, CodeFont);
+            DrawSelectionOutline(s, b, pl, o);
             // Buttons.
-            if (IsLaptop) s.Draw(Sched(40), o.x + 24, o.y + 150);
+            if (lap) s.Draw(Sched(40), o.x + 24, o.y + 150);
             else s.Draw(Sched(54), o.x + 22, o.y + 150);
             bool ext = cm.x >= 22 && cm.x <= 58 && cm.y >= 150 && cm.y <= 164, del = cm.x >= 135 && cm.x <= 170 && cm.y >= 150 && cm.y <= 164;
-            if (ext) s.Draw(Sched(IsLaptop ? 52 : 55), o.x + (IsLaptop ? 24 : 22), o.y + 150);
-            if (del) s.Draw(Sched(IsLaptop ? 53 : 56), o.x + (IsLaptop ? 133 : 131), o.y + 150);
+            if (ext) s.Draw(Sched(lap ? 52 : 55), o.x + (lap ? 24 : 22), o.y + 150);
+            if (del) s.Draw(Sched(lap ? 53 : 56), o.x + (lap ? 133 : 131), o.y + 150);
         }
 
         /// <summary>Right-pane tip of the hovered flight (§4.6).</summary>
-        void DrawFlightTip(Screen2D s, Vector2Int o)
+        void DrawFlightTip(Screen2D s, Block b, Vector2Int o)
         {
+            var titleFont = TitleFontFor(b);
             var e = TipPlane.Plan.Entries[TipEntry];
             int y = o.y;
             string title = e.Kind == FlightKind.Route ? Std("Rout", 900) : e.Kind == FlightKind.Contract ? Std("Auft", 900) : e.Kind == FlightKind.Freight ? Std("Auft", 902) : Std("Auft", 901);
-            TitleFont.Draw(s, o.x, y, title); y += 16;
+            titleFont.Draw(s, o.x, y, title); y += 16;
             F.Draw(s, o.x, y, PairText(F, e.From, e.To, 168)); y += 14;
             void Row(string label, string value) { F.Draw(s, o.x, y, label); F.Draw(s, o.x + 168, y, value, TextAlign.Right); y += 12; }
             Row(Std("Schd", 3000 + Weekday(W, e.StartDate)), e.StartHour + ":00 - " + e.LandHour + ":00");
@@ -514,12 +484,13 @@ namespace OpenAT.View.Rooms.Planner
                 if (c != null) Row(Std("Auft", 1001), Money(c.Premium));
             }
             Row(Std("Auft", 1004), Money(W.FuelCost.Estimate(W, P, e.From, e.To, TipPlane.Burn, TipPlane.Speed)));
-            if (e.Okay != 0) Kit.SmallRed.DrawBlock(s, new RectInt(o.x, y + 4, 168, 40), Std("Auft", 2320 + e.Okay), Color.white);
+            if (e.Okay != 0) Fs.Red.DrawBlock(s, new RectInt(o.x, y + 4, 168, 40), Std("Auft", 2320 + e.Okay), Color.white);
         }
 
         /// <summary>City tip in the right pane: small world map with the city, population, rent, branch.</summary>
-        void DrawCityTip(Screen2D s, Vector2Int o, Vector2Int title, Sim.Data.City c)
+        void DrawCityTip(Screen2D s, Block b, Vector2Int o, Vector2Int title, Sim.Data.City c)
         {
+            var titleFont = TitleFontFor(b);
             // Map at client (-4,-2) on the laptop, (-9,-11) in the filofax; marker at the city's map position;
             // "Name (code)" in the title bar; population and office rent at y 105/116 with values at x 90;
             // then the airlines with a branch there by rank (all airlines at the home airport).
@@ -531,7 +502,7 @@ namespace OpenAT.View.Rooms.Planner
             int px = mapOrigin.x + c.MapX * 34 / 60 + 97, py = mapOrigin.y + c.MapY * 73 / 90 + 80;
             s.FillRect(new RectInt(px - 1, py - 2, 3, 5), new Color32(255, 255, 255, 255));
             s.FillRect(new RectInt(px - 2, py - 1, 5, 3), new Color32(255, 255, 255, 255));
-            TitleFont.Draw(s, title.x, title.y, Clip(TitleFont, c.Name + " (" + c.ShortCode + ")", IsLaptop ? 130 : 170));
+            titleFont.Draw(s, title.x, title.y, Clip(titleFont, c.Name + " (" + c.ShortCode + ")", IsLaptop ? 130 : 170));
             int y = o.y - 15 + 120;
             F.Draw(s, o.x, y, Std("City", 1000)); F.Draw(s, o.x + 90, y, c.Population.ToString());
             var br = P.BranchAt(c.Index);
@@ -709,7 +680,7 @@ namespace OpenAT.View.Rooms.Planner
 
         void DrawInfoDetail(Screen2D s, Pane pane, Vector2Int o, Vector2Int cm)
         {
-            void Row(int y, string label, string value, bool red = false) { F.Draw(s, o.x, o.y + y, Clip(F, label, 110)); (red ? Kit.SmallRed : F).Draw(s, o.x + 168, o.y + y, value, TextAlign.Right); }
+            void Row(int y, string label, string value, bool red = false) { F.Draw(s, o.x, o.y + y, Clip(F, label, 110)); (red ? Fs.Red : F).Draw(s, o.x + 168, o.y + y, value, TextAlign.Right); }
             void Remark(string text) => F.DrawBlock(s, new RectInt(o.x + 2, o.y + 27, 170, 143), text ?? "", Color.white);
             switch (pane.SelectedId)
             {
@@ -718,7 +689,7 @@ namespace OpenAT.View.Rooms.Planner
                         if (IsLaptop) s.Draw(Sched(0), o.x + 21, o.y - 2);
                         else s.Draw(Assets.Texture("room/globe_a.gli", "TIMETAB1"), o.x + 21, o.y - 2);
                         int today = W.Clock.Date;
-                        for (int d = 0; d < 7; d++) Kit.VerySmall.Draw(s, o.x + 1, o.y + 21 + 19 * d, Std("Schd", 3000 + Weekday(W, today + d)));
+                        for (int d = 0; d < 7; d++) (CodeFont ?? Kit.VerySmall).Draw(s, o.x + 1, o.y + 21 + 19 * d, Std("Schd", 3000 + Weekday(W, today + d)));
                         var occ = P.Gates.Occupancy;
                         int rented = P.Gates.NumRented;
                         var red = new Color32(220, 0, 0, 255);
@@ -778,7 +749,7 @@ namespace OpenAT.View.Rooms.Planner
                         {
                             var pl = l[first + k];
                             long sum = pl.BalanceSum;
-                            var f = sum < 0 ? Kit.SmallRed : F;
+                            var f = sum < 0 ? Fs.Red : F;
                             string value = Money(sum);
                             int vx = o.x + 170 - f.Measure(value);
                             f.Draw(s, vx, o.y + 13 * k, value);
@@ -793,7 +764,7 @@ namespace OpenAT.View.Rooms.Planner
                         foreach (var q in W.Players)
                         {
                             if (q.IsOut) continue;
-                            Kit.SmallBlack.Draw(s, o.x, o.y + yy, Clip(F, q.Airline, 168)); yy += 12;
+                            F.Draw(s, o.x, o.y + yy, Clip(F, q.Airline, 168)); yy += 12;
                             if (pane.Page == 0) { Row(yy, Std("XPrt", 3300), ((q.Money) / 1000000.0).ToString("0.0")); yy += 12; Row(yy, Std("XPrt", 3301), (q.Credit / 1000000.0).ToString("0.0")); }
                             else if (pane.Page == 1) { Row(yy, Std("XPrt", 3302), q.Planes.Count.ToString()); yy += 12; Row(yy, Std("XPrt", 3303), q.Image.ToString()); }
                             else

@@ -18,6 +18,9 @@ namespace OpenAT.View.Boot
         public GameSession(World world)
         {
             World = world;
+            // The player's OpenAT extras choices (options), then the command-line test switches.
+            Extras.ApplyTo(world.Options);
+            ApplyCommandLine(world.Options);
             Driver = new SimDriver(world);
         }
 

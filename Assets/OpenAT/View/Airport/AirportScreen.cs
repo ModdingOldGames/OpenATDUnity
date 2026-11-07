@@ -143,6 +143,7 @@ namespace OpenAT.View.Airport
             }
             else if (!_bar.Update(this, input) && !HandleKeys(input)) HandleInput(input, me);
             else { _edgeZone = 0; _hoverRoom = 0; }
+            StickWalk(!_menus.IsOpen && !App.Ui.FastTravel.IsOpen);
             UpdateCursor(input, me);
 
             // One camera step per frame in which the simulation ran (§5.3: the original moves the camera once per
@@ -158,6 +159,7 @@ namespace OpenAT.View.Airport
             var m = input.Mouse;
             _mouse = m;
             bool inHall = m.y >= 0 && m.y < HallHeight && m.x >= 0 && m.x < W;
+            AddPadTargets();
 
             // Edge scrolling zones (§5.4; WS: right zone at W − 10).
             _edgeZone = 0;
@@ -165,6 +167,7 @@ namespace OpenAT.View.Airport
             if (inHall && m.x >= W - 10 && ViewX < MaxViewX) _edgeZone = 1;
             if (input.Left && ViewX > MinViewX) _edgeZone = -1;
             if (input.Right && ViewX < MaxViewX) _edgeZone = 1;
+            if (App.Ui.Pad.Walk != Vector2.zero) _edgeZone = 0;   // the camera follows a stick-walking figure (OpenAT)
             _scrollFast = input.LeftHeld || input.Left || input.Right;
 
             // The hall uses the hover point for thought bubbles (UI input, not game state).
@@ -208,6 +211,44 @@ namespace OpenAT.View.Airport
                 if (r.Ok && dbl) App.Audio.Click();
                 if (!r.Ok && DebugFlow) Debug.Log("OpenAT hall: click ignored at " + _w.Clock.ClockText + ": " + r);
             }
+        }
+
+        // ------------------------------------------------------------------ gamepad (OpenAT)
+
+        bool _stickOn;
+
+        /// <summary>Doors, counters and displays in view are gamepad targets.</summary>
+        void AddPadTargets()
+        {
+            foreach (var a in _h.Layout.Areas)
+            {
+                if (a.Par == 0 || a.Par == RoomIds.Wall) continue;
+                var r = new RectInt(a.P1.X - ViewX, a.P1.Y - ViewY, a.P2.X - a.P1.X + 1, a.P2.Y - a.P1.Y + 1);
+                if (r.xMax <= 0 || r.x >= W || r.yMax <= 0 || r.y >= HallHeight) continue;
+                App.Ui.Targets.Add(r);
+            }
+        }
+
+        /// <summary>
+        /// The left stick walks the figure (<see cref="StickWalkCommand"/>): eight directions, the pace from how far the
+        /// stick is pushed. Letting go (or a menu opening) stops the figure.
+        /// </summary>
+        void StickWalk(bool allowed)
+        {
+            var v = allowed ? App.Ui.Pad.Walk : Vector2.zero;
+            float mag = v.magnitude;
+            int tilt = Mathf.Clamp(Mathf.RoundToInt(mag * 1000), 0, 1000);
+            if (tilt == 0)
+            {
+                if (_stickOn) _w.Execute(new StickWalkCommand(Local, 0, 0, 0));
+                _stickOn = false;
+                return;
+            }
+            int dx = Mathf.Abs(v.x) > 0.38f * mag ? Math.Sign(v.x) : 0, dy = Mathf.Abs(v.y) > 0.38f * mag ? Math.Sign(v.y) : 0;
+            if (!_w.Execute(new StickWalkCommand(Local, dx, dy, tilt)).Ok) return;
+            _stickOn = true;
+            _manualScroll = false;
+            if (App.Session != null) App.Session.Driver.Warp = false;
         }
 
         /// <summary>Inventory click in the status bar (rooms-and-ui-1 §9.4): laptop, phone, filofax.</summary>

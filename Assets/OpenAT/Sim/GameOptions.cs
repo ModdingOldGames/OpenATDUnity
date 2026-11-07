@@ -115,6 +115,25 @@ namespace OpenAT.Sim
         /// (the original shows it only for the local player's own figure, airport-and-people.md §6.2).</summary>
         public bool ComputerPhonePose = false;
 
+        // ---- OpenAT improvements (on by default; off = the original's interface)
+        /// <summary>Flight planner improvements: fleet search and filters, previous/next plane, docked schedules in the
+        /// extra width of wide screens, flight detail cards, precise time setting and refusal notices.</summary>
+        public bool PlannerEnhancements = true;
+        /// <summary>The globe room's filofax at the window's real resolution: smoothed artwork and smaller,
+        /// sharp text, so the lists hold more rows (needs <see cref="PlannerEnhancements"/>).</summary>
+        public bool PlannerHiResFilofax = true;
+        /// <summary>The laptop's planner windows, the docked schedules and the order counters' planner panel at the
+        /// window's real resolution, like <see cref="PlannerHiResFilofax"/> (needs <see cref="PlannerEnhancements"/>).</summary>
+        public bool PlannerHiResLaptop = true;
+        /// <summary>Gamepad play (Steam Deck, Legion Go, Xbox and PlayStation pads): a stick cursor that snaps to hotspots,
+        /// d-pad and shoulder-button navigation between hotspots, keyboard-free flight scheduling in the planner, and the
+        /// hall figure walking with the left stick at a pace set by how far the stick is pushed. Mouse and keyboard
+        /// play stay as they are.</summary>
+        public bool GamepadSupport = true;
+        /// <summary>The first morning's walk of all figures to the boss office can be skipped (Esc, Space, right click,
+        /// or the pad's B, Cross or Start): the briefing opens at once.</summary>
+        public bool SkipStartWalk = true;
+
         public GameOptions Clone() => (GameOptions)MemberwiseClone();
     }
 }

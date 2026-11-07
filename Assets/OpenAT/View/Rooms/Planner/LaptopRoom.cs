@@ -201,6 +201,63 @@ namespace OpenAT.View.Rooms.Planner
             b.Left.Pages = 4;
         }
 
+        protected override int MainPlaneId
+        {
+            get
+            {
+                if (State == null || _windowsHidden) return -1;
+                foreach (var b in State.Windows) if (!b.Closing && b.Left.IsDetail(BlockType.Planes)) return b.Left.SelectedId;
+                return -1;
+            }
+        }
+
+        /// <summary>Fleet index pick: the front plane window shows the plane (keeping its page), else a new window opens.</summary>
+        protected override void OpenPlaneFromFleet(Plane pl)
+        {
+            _windowsHidden = false;
+            foreach (var b in State.Windows)
+            {
+                if (b.Closing || !b.Left.IsDetail(BlockType.Planes)) continue;
+                int page = b.Left.Page;
+                b.Left.SelectedId = pl.Id;
+                UpdatePages(b.Left, b);
+                b.Left.Page = Mathf.Min(page, b.Left.Pages - 1);
+                BringToFront(b);
+                return;
+            }
+            OpenPlaneWindow(pl);
+        }
+
+        protected override bool CanOpenPlaneWindow => !Virus;
+
+        protected override bool OpenPlaneWindow(Plane pl)
+        {
+            if (Virus) return false;
+            _windowsHidden = false;
+            State.WindowPos.TryGetValue(BlockType.Planes, out var pos);
+            var b = NewWindow(BlockType.Planes, pos + new Vector2Int(12 * (State.Windows.Count % 6), 12 * (State.Windows.Count % 6)));
+            if (b == null) return false;
+            OpenDetail(b, b.Left, pl.Id);
+            return true;
+        }
+
+        protected override bool CanArrange => !Virus && !_windowsHidden && State.Windows.Count > 1;
+
+        /// <summary>Cascades the open windows over the monitor, the front window last (on top, lowest right).</summary>
+        protected override void ArrangeWindows()
+        {
+            int i = 0;
+            for (int k = State.Windows.Count - 1; k >= 0; k--)
+            {
+                var b = State.Windows[k];
+                if (b.Closing) continue;
+                int step = i % 9;
+                b.Pos = ClampBlock(b, new Vector2Int(44 + 18 * step, 31 + 18 * step));
+                i++;
+            }
+            App.Audio.Play("SOUND/click.raw");
+        }
+
         void OpenFromIcon(int type)
         {
             foreach (var b in State.Windows)
@@ -271,6 +328,8 @@ namespace OpenAT.View.Rooms.Planner
         /// <summary>Previous/next element of the pane's list, wrapping around (Laptop quick-jump).</summary>
         void Jump(Block b, Pane pane, int dir)
         {
+            // OpenAT: planes follow the fleet index's filtered order.
+            if (Enhanced && pane.Type == BlockType.Planes) { JumpPlane(b, pane, dir); return; }
             var ids = new List<int>();
             switch (pane.Type)
             {

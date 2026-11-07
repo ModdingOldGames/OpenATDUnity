@@ -76,6 +76,7 @@ namespace OpenAT.View.Screens
         void Go(int page)
         {
             _page = page;
+            NewPadPage();
             _cursorPlayer = -1;
             if (page == AirportPage)
             {
@@ -236,9 +237,14 @@ namespace OpenAT.View.Screens
         {
             var m = input.Mouse;
             int x = m.x - OX, y = m.y;
+            AddPadTargets();
+            // Gamepad home on the player page: Start (bottom right), the usual next step (OpenAT).
+            App.Ui.Targets.Home = new Vector2Int(OX + BoardX + 21 * KlackerBoard.CellWidth, BoardY + 15 * KlackerBoard.CellHeight + KlackerBoard.CellHeight / 2);
             for (int c = 0; c < 4; c++)
             {
                 int top = 129 + 66 * c;
+                App.Ui.Targets.Add(OX + 128, top, OX + 512, top + 21);   // gamepad targets (OpenAT): name, then the rest
+                App.Ui.Targets.Add(OX + 128, top + 22, OX + 512, top + 44);
                 if (x < 128 || x > 512 || y < top || y > top + 44) continue;
                 bool nameRow = y < top + 22;
                 if (x >= 223 && nameRow) App.Ui.Cursor = CursorLook.Hot;

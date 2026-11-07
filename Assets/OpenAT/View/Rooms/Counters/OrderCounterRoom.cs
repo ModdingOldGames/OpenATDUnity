@@ -16,7 +16,7 @@ namespace OpenAT.View.Rooms.Counters
     /// (<see cref="AcceptContractCommand"/> / <see cref="AcceptFreightCommand"/>), the card then flies away.
     /// Entering and leaving refills the board (<see cref="VisitOfferBoardCommand"/>).
     /// </summary>
-    public abstract class OrderCounterRoom : RoomScreen
+    public abstract partial class OrderCounterRoom : RoomScreen
     {
         protected World W => App.Session?.World;
         protected Player P => App.Session?.Local;
@@ -60,6 +60,9 @@ namespace OpenAT.View.Rooms.Counters
 
         public override void Update(InputState input, float dt)
         {
+            ApplyPanelLayout();
+            if (Menus != null && !Menus.IsOpen && !IsDialogOpen && input.Mouse.y < Screen.Height - StatusBar.Height) PanelInput(input);
+            else _panelMouse = false;
             base.Update(input, dt);
             if (W != null && !Open && !IsDialogOpen && !Menus.IsOpen && App.Rooms.Current == this) Leave();
         }
@@ -75,6 +78,15 @@ namespace OpenAT.View.Rooms.Counters
         }
 
         protected virtual bool SlotBusy(int i) => Fly[i] >= 0;
+
+        /// <summary>The hovered offer's tip; the planner panel (OpenAT) is drawn over it.</summary>
+        protected virtual void DrawOfferTip(Screen2D s) { }
+
+        protected sealed override void DrawOverlay(Screen2D s)
+        {
+            DrawOfferTip(s);
+            DrawPanel(s);
+        }
         protected virtual float FlySeconds => 0.333f;
         protected virtual void OnFlyDone(int slot) { }
 
@@ -106,18 +118,25 @@ namespace OpenAT.View.Rooms.Counters
         /// <summary>Takes the card in <paramref name="slot"/>; true on success.</summary>
         protected bool Take(int slot)
         {
+            bool tried = IsTried(slot);
+            int id;
             if (FreightBoard)
             {
                 var copy = W.FreightOffice.Offers[slot].Clone();
-                if (!W.Execute(new AcceptFreightCommand(P.Index, Board, slot)).Ok) return false;
+                var cmd = new AcceptFreightCommand(P.Index, Board, slot);
+                if (!W.Execute(cmd).Ok) return false;
                 FlyFreight[slot] = copy;
+                id = cmd.FreightId;
             }
             else
             {
                 var copy = Offer(slot).Clone();
-                if (!W.Execute(new AcceptContractCommand(P.Index, Board, slot)).Ok) return false;
+                var cmd = new AcceptContractCommand(P.Index, Board, slot);
+                if (!W.Execute(cmd).Ok) return false;
                 FlyCard[slot] = copy;
+                id = cmd.ContractId;
             }
+            if (tried) OnTriedOfferAccepted(id);
             App.Audio.Play("SOUND/paptake.raw");
             Fly[slot] = 0;
             App.Advisors.NoComments();

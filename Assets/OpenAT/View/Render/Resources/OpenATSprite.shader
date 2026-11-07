@@ -1,7 +1,7 @@
 // Unlit textured quad with vertex colour tint and alpha blending, used by Screen2D.
 Shader "Hidden/OpenAT/Sprite"
 {
-    Properties { _MainTex ("Texture", 2D) = "white" {} }
+    Properties { _MainTex ("Texture", 2D) = "white" {} _AlphaOnly ("Alpha-only texture", Float) = 0 }
     SubShader
     {
         Tags { "Queue"="Transparent" "RenderType"="Transparent" }
@@ -14,6 +14,7 @@ Shader "Hidden/OpenAT/Sprite"
             #pragma fragment frag
             #include "UnityCG.cginc"
             sampler2D _MainTex;
+            float _AlphaOnly;
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             v2f vert (appdata v)
@@ -24,7 +25,13 @@ Shader "Hidden/OpenAT/Sprite"
                 o.color = v.color;
                 return o;
             }
-            fixed4 frag (v2f i) : SV_Target { return tex2D(_MainTex, i.uv) * i.color; }
+            fixed4 frag (v2f i) : SV_Target
+            {
+                fixed4 c = tex2D(_MainTex, i.uv);
+                // Alpha-only textures (TrueType glyphs): white where covered, coloured by the tint.
+                c.rgb = lerp(c.rgb, fixed3(1, 1, 1), _AlphaOnly);
+                return c * i.color;
+            }
             ENDCG
         }
     }

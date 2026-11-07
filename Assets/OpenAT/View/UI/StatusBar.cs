@@ -94,9 +94,17 @@ namespace OpenAT.View.UI
             var s = app.Screen;
             int top = Top(s), W = s.Width;
             var m = input.Mouse;
-            if (m.y < top) return false;
             var ui = app.Ui;
             var player = session.Local;
+            // Gamepad targets (OpenAT): logo, clock, money, the items and the two right-hand buttons.
+            ui.Targets.AddBar(0, top, 79, top + Height - 1);
+            ui.Targets.AddBar(80, top, 242, top + 19);
+            ui.Targets.AddBar(80, top + 20, 242, top + Height - 1);
+            for (int i = 0; i < Inventory.Slots; i++)
+                if (Inventory.At(player, i) != Inventory.Empty) ui.Targets.AddBar(248 + 60 * i, top, 248 + 60 * i + 59, top + Height - 1);
+            ui.Targets.AddBar(W - 30, top, W - 1, top + 19);
+            ui.Targets.AddBar(W - 30, top + 20, W - 1, top + Height - 1);
+            if (m.y < top) return false;
             bool busy = host.IsDialogOpen || host.Menus.IsOpen;
             int ry = m.y - top;
 
@@ -121,7 +129,7 @@ namespace OpenAT.View.UI
             // Holding the button on the time display accelerates time (rooms-and-ui-9 §7).
             session.Driver.ClockClickFactor = 1;
             if (m.x >= 102 && m.x <= 255 && ry < 20 && !busy)
-                session.Driver.ClockClickFactor = input.LeftHeld ? 5 : input.RightHeld ? 20 : 1;
+                session.Driver.ClockClickFactor = input.LeftHeld ? 5 : input.RightHeld && !input.PadActive ? 20 : 1;   // pad B is "back", not fast time
 
             // Tutorial panel left of the icons (rooms-and-ui-1 §9.5): click cancels the tutorial.
             bool tutorial = Tutorial.TutorialView.Active;

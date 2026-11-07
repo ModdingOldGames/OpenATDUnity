@@ -34,6 +34,18 @@
 - **Tutorial (mission 0)** and the open-issues sweep (docs/spec/integration.md).
 - **Modding:** data mods (JSON), code mods (`IOpenATMod` DLLs), tunables, mod list (docs/MODDING.md).
 - **Fidelity pass** against the running original: docs/FIDELITY.md lists what was compared and fixed.
+- **Improvements after `faithful-baseline`** (docs/IMPROVEMENTS.md): the flight planner gets the fleet
+  index with search and filters, docked schedules on wide screens, previous/next plane, flight cards,
+  precise departure setting, refusal notices and expected profit or loss on flight cards, and a
+  high-resolution filofax and laptop (smoothed artwork, the original fonts slightly smaller, more rows
+  per page; the framebuffer now renders at the window's resolution). The order counters get a planner
+  panel that starts with the planes able to fly the offer, placement trials on an isolated copy of the
+  world, and an all-or-nothing "take and plan" or "apply". Gamepad play (Steam Deck, Legion Go, Xbox and
+  PlayStation pads): a stick cursor that snaps to hotspots, d-pad and shoulder navigation between them,
+  flight scheduling in the planner with the d-pad, and walking the figure with the left stick at a pace
+  that follows the tilt.
+- **Branches:** `faithful` keeps the game in its original form (from the tag `faithful-baseline`, plus
+  fixes of the reproduction); `enhanced` carries the improvements and merges `faithful` after each fix.
 
 ## Open
 - Day-0 start walk: the figures start from the hall's player spawn runes; the original's appear together

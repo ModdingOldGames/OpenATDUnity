@@ -70,6 +70,14 @@ namespace OpenAT.View.Rooms.Framework
             return t.TryGetValue(char.ToUpperInvariant(key), out int r) ? r : 0;
         }
 
+        /// <summary>The key of a location in a layout ('\0' = none); the gamepad's Y and X use it (OpenAT).</summary>
+        public static char KeyFor(int target, Layout layout)
+        {
+            var t = layout == Layout.GermanDutch ? German : layout == Layout.Portuguese ? Portuguese : Other;
+            foreach (var kv in t) if (kv.Value == target) return kv.Key;
+            return '\0';
+        }
+
         /// <summary>The tutorial switches off the global keys (Esc, Tab, F3, F4) and the room hotkeys.</summary>
         public static bool TutorialBlocksGlobalKeys(World w) => w != null && OpenAT.Sim.Tutorial.TutorialEngine.Running(w);
 
@@ -151,6 +159,17 @@ namespace OpenAT.View.Rooms.Framework
             foreach (int l in app.Rooms.Locations) if (l == room) return true;
             return false;
         }
+
+        /// <summary>Walks (or runs) to a hotkey target like its key would, when the keys are allowed; false = nothing happened.
+        /// Used by the gamepad's fast-travel menu (OpenAT).</summary>
+        public static bool Travel(GameApp app, int target, bool run)
+        {
+            var w = app.Session?.World;
+            return w != null && KeysAllowed(app, w, false) && Go(app, w, target, run);
+        }
+
+        /// <summary>The hotkey targets of a layout (pseudo-targets included), in table order.</summary>
+        public static IEnumerable<int> Targets(Layout layout) => (layout == Layout.GermanDutch ? German : layout == Layout.Portuguese ? Portuguese : Other).Values;
 
         /// <summary>Resolves the pseudo-targets and the mission/feature conditions, then walks (false = nothing happened).</summary>
         static bool Go(GameApp app, World w, int target, bool run)

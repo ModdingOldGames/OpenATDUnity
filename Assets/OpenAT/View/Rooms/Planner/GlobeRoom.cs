@@ -94,6 +94,29 @@ namespace OpenAT.View.Rooms.Planner
             f.Left.Pages = 4; // QUIRK (5b §4.2): a globe click gives 3 + photos pages
         }
 
+        protected override int MainPlaneId =>
+            State?.Filofax != null && State.FilofaxVisible && State.Filofax.Left.IsDetail(BlockType.Planes) ? State.Filofax.Left.SelectedId : -1;
+
+        /// <summary>Fleet index pick: the filofax shows the plane, keeping the open page and the right-hand tab.</summary>
+        protected override void OpenPlaneFromFleet(Plane pl)
+        {
+            State.FilofaxVisible = true;
+            var f = State.EnsureFilofax();
+            if (f.Left.IsDetail(BlockType.Planes))
+            {
+                int page = f.Left.Page;
+                f.Left.SelectedId = pl.Id;
+                UpdatePages(f.Left, f);
+                f.Left.Page = Mathf.Min(page, f.Left.Pages - 1);
+                PaperSound();
+                return;
+            }
+            f.SwitchType(f.Left, BlockType.Planes);
+            if (f.Right.Type == BlockType.None) f.SwitchType(f.Right, BlockType.Orders);
+            UpdatePages(f.Right, f);
+            OpenDetail(f, f.Left, pl.Id);
+        }
+
         // ------------------------------------------------------------------ tabs and move strip
 
         int LeftTabAt(Vector2Int l)
@@ -116,6 +139,39 @@ namespace OpenAT.View.Rooms.Planner
             if (l.x >= 343 && l.x <= 414) t = BlockType.Freight;
             if (l.x >= 414 && l.x <= 486) t = BlockType.Routes;
             return t;
+        }
+
+        /// <summary>Gamepad targets outside the filofax (OpenAT): the closed filofax's corner and the globe's turn buttons.</summary>
+        protected override void AddRoomTargets(PadTargets t)
+        {
+            if (!State.FilofaxVisible)
+            {
+                var tex = Assets.Texture(Kit0, "FILOECKE");
+                t.Add(new RectInt(RX, 440 - tex.height + 1, tex.width, tex.height - 1));
+            }
+            t.Add(RX + 353, 397, RX + 393, 417);
+            t.Add(RX + 247, 396, RX + 287, 416);
+        }
+
+        /// <summary>With the filofax closed, the touchpad goes to its corner.</summary>
+        protected override Vector2Int? RoomHome()
+        {
+            if (State.FilofaxVisible) return null;
+            var tex = Assets.Texture(Kit0, "FILOECKE");
+            return new Vector2Int(RX + tex.width / 2, 440 - tex.height / 2);
+        }
+
+        /// <summary>The filofax tabs as gamepad targets (OpenAT).</summary>
+        protected override void AddChromeTargets(Block b, Vector2Int bs, PadTargets t)
+        {
+            if (b.Style != Block.StyleFilofax) return;
+            t.Add(Offset(PaneGeom.R(28, 260, 107, 290), bs));
+            t.Add(Offset(PaneGeom.R(108, 260, 168, 290), bs));
+            t.Add(Offset(PaneGeom.R(169, 260, 268, 290), bs));
+            if (b.Left.Type != BlockType.Planes) return;
+            t.Add(Offset(PaneGeom.R(272, 258, 342, 289), bs));
+            t.Add(Offset(PaneGeom.R(343, 258, 413, 289), bs));
+            t.Add(Offset(PaneGeom.R(414, 258, 486, 289), bs));
         }
 
         protected override bool ChromeClick(Block b, Vector2Int l, InputState input)
@@ -193,6 +249,7 @@ namespace OpenAT.View.Rooms.Planner
             {
                 State.FilofaxVisible = true;
                 App.Audio.Play("SOUND/paper.raw");
+                if (input.PadActive) _padHomeNext = true;   // the pad cursor goes to the first plane
                 return true;
             }
             if (InRect(c, 353, 397, 393, 417) || InRect(c, 247, 396, 287, 416)) return true;

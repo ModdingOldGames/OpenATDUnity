@@ -46,6 +46,14 @@ namespace OpenAT.View.Rooms.Counters
             return new RectInt(p.x, p.y + 30, t.width, Mathf.Max(1, t.height - 30));
         }
 
+        /// <summary>The tab sits right of the crate's city codes (the crate pictures are wider than the crates).</summary>
+        protected override RectInt TabRect(int slot)
+        {
+            var t = Crate(slot);
+            var p = Pos[slot];
+            return new RectInt(p.x + TextOff[slot].x + t.width / 2 + 30, p.y + TextOff[slot].y + 1, 14, 12);
+        }
+
         protected override void OnCreate()
         {
             _master = new SmackerPerson(Assets, App.Audio);
@@ -113,10 +121,12 @@ namespace OpenAT.View.Rooms.Counters
 
         protected override void Hotspots(InputState input)
         {
+            if (PanelBlocksHotspots()) return;
             Hot(465, 0, 639, 309, ClickMaster);
             Exit(620, 0, 639, 439);
             Exit(440, 357, 639, 430);
             CardHotspots();
+            TabHotspots();
             // The glue pot is tested first in the original, so it wins over the exit around it.
             if (GlueThere) Hot(567, 386, 630, 429, ClickGlue);
         }
@@ -131,6 +141,7 @@ namespace OpenAT.View.Rooms.Counters
                 else s.World.Execute(new PickUpItemCommand(s.Local.Index, ItemId.Glue));
                 return;
             }
+            if (TabClick(id)) return;
             if (id < 0 || id >= 6) return;
             if (!Take(id)) return;
             // The crate waits for the buzzer (frame 5 of the master's clip 2).
@@ -166,9 +177,10 @@ namespace OpenAT.View.Rooms.Counters
                 }
             s.Draw(Assets.Texture(Lib, "MASK"), RX + 333, 0);
             _master.Draw(s, RX);
+            DrawTabs(s);
         }
 
-        protected override void DrawOverlay(Screen2D s)
+        protected override void DrawOfferTip(Screen2D s)
         {
             if (Hover < 0 || IsDialogOpen || Menus.IsOpen || !SlotFilled(Hover) || Busy(Hover)) return;
             var o = W.FreightOffice.Offers[Hover];
